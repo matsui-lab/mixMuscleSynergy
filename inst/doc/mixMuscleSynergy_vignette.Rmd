@@ -1,0 +1,218 @@
+---
+title: "Using mixMuscleSynergy package"
+author: "Yusuke Matsui"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using Mixture MFA and PCA Grid Search}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+In this vignette, we demonstrate **how to use** functions for:
+
+1. **Selecting** the best \((K, r)\) for Mixture Factor Analysis (MFA) via `select_optimal_K_r_mfa()`.
+2. **Selecting** the best \((K, r)\) for Mixture PCA via `select_optimal_K_r_mpca()`.
+3. **Computing** global VAF, factor scores, and cluster sizes.
+4. **Post-hoc evaluation** of the fitted models.
+
+We assume you have the following functions in your package (with Roxygen docs):
+
+- `select_optimal_K_r_mfa()`
+- `select_optimal_K_r_mpca()`
+- `compute_global_vaf_mfa()`, `compute_global_vaf_mpca()`
+- `compute_factor_scores()`, `compute_factor_scores_pca()`
+- `compute_cluster_sizes()`, `compute_cluster_sizes_mpca()`
+- `posthoc_mfa_evaluation()`, `posthoc_mpca_evaluation()`
+- `get_model_by_K_r()`, `get_model_by_K_r_mpca()`
+
+We also assume you have **fitting functions** `mfa_em_fit()` and `mixture_pca_em_fit()`, which do the actual EM loop or call your C++ code.
+
+---
+
+# 1. Searching for the Best (K, r) in MFA
+
+```r
+# A small example
+library(YourPackageName)  # load your package
+
+# Suppose you have list_of_data: a list of N matrices, each (T_i x M).
+# You want to search K=2..3 and r=1..2.
+
+sel_mfa <- select_optimal_K_r_mfa(
+  list_of_data, 
+  Kvec=2:3,
+  rvec=1:2,
+  max_iter=50, 
+  nIterFA=10,
+  tol=1e-4
+)
+
+# We get back a list with three elements:
+names(sel_mfa)
+# [1] "summary"         "best_model_info" "all_models"
+
+# The 'summary' is a data frame
+head(sel_mfa$summary)
+#    K r  logLik      BIC
+# 1  2 1  ...      ...
+# 2  2 2  ...      ...
+# 3  3 1  ...      ...
+# ...
+
+# 'best_model_info' is a single combination (K, r) with the lowest BIC
+sel_mfa$best_model_info
+```
+
+We can **extract** the best model from `best_model_info` or use `posthoc_mfa_evaluation()` to get more details.
+
+---
+
+# 2. Post-hoc MFA Evaluation
+
+```r
+df_posthoc <- posthoc_mfa_evaluation(list_of_data, sel_mfa)
+head(df_posthoc)
+# Columns: (K, r, logLik, BIC, GlobalVAF, minClusterSize, maxClusterSize)
+```
+
+This function loops over every model in `sel_mfa$all_models`, computes:
+
+- **Global VAF** via `compute_global_vaf_mfa()`.
+- **Cluster sizes** via `compute_cluster_sizes()`.
+
+Then returns a data frame sorted by BIC.
+
+If you want to **retrieve a specific** \((K, r)\) model from the grid:
+
+```r
+my_model <- get_model_by_K_r(sel_mfa, K_target=2, r_target=1)
+# returns the fitted object from that combination
+```
+
+---
+
+# 3. Searching for the Best (K, r) in Mixture PCA
+
+For Mixture PCA, we do something similar but with:
+
+```r
+sel_mpca <- select_optimal_K_r_mpca(
+  list_of_data,
+  Kvec=2:3, rvec=1:2,
+  max_iter=30,
+  nIterPCA=5,
+  tol=1e-4,
+  method="EM"  # or "closed_form"
+)
+
+# The structure is analogous:
+names(sel_mpca)
+# "summary", "best_model_info", "all_models"
+```
+
+Then we can do a **post-hoc** step:
+
+```r
+df_posthoc_pca <- posthoc_mpca_evaluation(list_of_data, sel_mpca)
+head(df_posthoc_pca)
+# columns: (K, r, logLik, BIC, GlobalVAF, minClusterSize, maxClusterSize)
+```
+
+And if you want a particular combination:
+
+```r
+my_pca_model <- get_model_by_K_r_mpca(sel_mpca, 3, 2)
+```
+
+---
+
+# 4. Global VAF, Factor Scores, Cluster Sizes
+
+## 4.1 Global VAF
+
+Both `compute_global_vaf_mfa()` and `compute_global_vaf_mpca()` require a fitted model result to:
+
+1. Reconstruct each subject's data from the latent factors or principal components.
+2. Compare SSE to the total sum of squares (SST).
+
+For **MFA**:
+
+```r
+my_fit <- sel_mfa$best_model_info$model
+gvaf <- compute_global_vaf_mfa(list_of_data, my_fit)
+cat("Global VAF for best MFA:", gvaf, "\n")
+```
+
+For **Mixture PCA**:
+
+```r
+my_pca_fit <- sel_mpca$best_model_info$model
+gvaf_pca <- compute_global_vaf_mpca(list_of_data, my_pca_fit)
+cat("Global VAF for best PCA:", gvaf_pca, "\n")
+```
+
+## 4.2 Factor / PC Scores
+
+When analyzing an individual subject or cluster:
+
+```r
+# For MFA
+scores <- compute_factor_scores(
+  X = subjectX,         # (T x M) data
+  mu = my_fit$mu[[k]],  # cluster k's mean
+  Lambda = my_fit$Lambda[[k]],
+  Psi = my_fit$Psi[[k]]
+)
+
+# For PCA
+scores_pca <- compute_factor_scores_pca(
+  X = subjectX,
+  mu = my_pca_fit$mu[[k]],
+  P  = my_pca_fit$P[[k]],
+  D  = my_pca_fit$D[[k]],
+  Psi= my_pca_fit$Psi[[k]]
+)
+```
+
+## 4.3 Cluster Sizes
+
+```r
+tab <- compute_cluster_sizes(my_fit)
+print(tab)
+# z_vec = c(2,2,1,3,...) => table of frequencies
+
+tab_pca <- compute_cluster_sizes_mpca(my_pca_fit)
+print(tab_pca)
+```
+
+---
+
+# 5. Conclusion
+
+These functions together create a workflow:
+
+1. **select_optimal_K_r_mfa() / select_optimal_K_r_mpca()**  
+   - Fit multiple `(K, r)` combos, choose best by BIC.
+2. **posthoc_mfa_evaluation() / posthoc_mpca_evaluation()**  
+   - Evaluate each model’s global VAF, cluster sizes, etc.
+3. **get_model_by_K_r() / get_model_by_K_r_mpca()**  
+   - Extract a specific combination from the grid.
+4. **compute_global_vaf_mfa() / compute_global_vaf_mpca()**  
+   - Summarize how well each model reconstructs the data overall.
+5. **compute_factor_scores() / compute_factor_scores_pca()**  
+   - Examine latent factor or PC scores for deeper analysis.
+
+Use these to **compare** different models, interpret the latent structure, and finalize your mixture factor/PCA analysis. 
+
+**Happy modeling!**
+
+```r
+# end of using_mixfa_mpca.Rmd
+```

@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Yusuke Matsui" />
+
+<meta name="date" content="2025-02-08" />
+
+<title>Reading and Visualizing Results</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Reading and Visualizing Results</h1>
+<h4 class="author">Yusuke Matsui</h4>
+<h4 class="date">2025-02-08</h4>
+
+
+
+<div id="introduction" class="section level1">
+<h1>Introduction</h1>
+<p>This vignette demonstrates <strong>how to use</strong> the function
+<code>read_and_visualize_all()</code> to:</p>
+<ol style="list-style-type: decimal">
+<li><strong>Load</strong> previously saved simulation results (in
+<code>.rds</code> format) from a given directory.<br />
+</li>
+<li>Generate <strong>Table 1</strong> (static summary of simulation
+conditions).<br />
+</li>
+<li>Generate <strong>Table 2</strong> (aggregated ARI/BIC summary from
+loaded results).<br />
+</li>
+<li>Produce <strong>Figure 1</strong> (ARI vs. separation/noise),
+<strong>Figure 2</strong> (BIC heatmap), optionally <strong>Figure
+3</strong> (boxplots for multiple initial seeds), and more.</li>
+</ol>
+<p>We assume that the <code>.rds</code> files were created by a function
+like <code>simulate_and_run_parallel_save()</code>, each containing a
+small data frame summarizing that condition. For details on how those
+files are generated, see other package functions/vignettes.</p>
+<hr />
+</div>
+<div id="the-read_and_visualize_all-function" class="section level1">
+<h1>1. The <code>read_and_visualize_all()</code> Function</h1>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39; Read All Results and Produce Tables/Figures</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39; This function demonstrates how to read all .rds files from a directory,</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39; merge them into a single \code{data.frame}, generate a couple of tables (Table 1, Table 2),</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39; and produce various figures (Figure 1, Figure 2, etc.) saving them to files.</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39; @param result_dir Directory containing .rds result files (default &quot;results&quot;).</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39; @return Invisibly returns the merged data frame of all results.</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39; @details</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39; The user can modify the conditions in \code{\link{make_table1}} and \code{\link{make_table2}}</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39; to match their actual experiment ranges. Figures are generated via \code{ggsave}.</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39; @examples</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39; \dontrun{</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39; df_all &lt;- read_and_visualize_all(&quot;results&quot;)</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39; }</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co">#&#39; @export</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>read_and_visualize_all <span class="ot">&lt;-</span> <span class="cf">function</span>(<span class="at">result_dir=</span><span class="st">&quot;results&quot;</span>){</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> <span class="fu">read_all_results</span>(<span class="at">result_dir=</span>result_dir)</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  df_table1 <span class="ot">&lt;-</span> <span class="fu">make_table1</span>()</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;=== Table 1: Simulation Conditions ===</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(df_table1)</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>  <span class="co"># knitr::kable(df_table1, caption=&quot;Table 1: Conditions&quot;)</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>  df_table2 <span class="ot">&lt;-</span> <span class="fu">make_table2</span>(df)</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;=== Table 2: Summary of ARI etc. ===</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(df_table2)</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>  <span class="co"># kable(df_table2, caption=&quot;Table 2: Summary&quot;)</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>  p1 <span class="ot">&lt;-</span> <span class="fu">plot_fig1_ARI</span>(df)</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggsave</span>(<span class="st">&quot;figure1_ARI_sep_noise.pdf&quot;</span>, p1, <span class="at">width=</span><span class="dv">8</span>, <span class="at">height=</span><span class="dv">6</span>)</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>  p2 <span class="ot">&lt;-</span> <span class="fu">plot_fig2_BIC_heatmap</span>(df)</span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggsave</span>(<span class="st">&quot;figure2_BIC_heatmap.pdf&quot;</span>, p2, <span class="at">width=</span><span class="dv">6</span>, <span class="at">height=</span><span class="dv">5</span>)</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(<span class="fu">nrow</span>(df) <span class="sc">&gt;</span> <span class="dv">1</span>){</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>    p3 <span class="ot">&lt;-</span> <span class="fu">plot_fig3_init_boxplot</span>(df)</span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ggsave</span>(<span class="st">&quot;figure3_init_boxplot.pdf&quot;</span>, p3, <span class="at">width=</span><span class="dv">6</span>, <span class="at">height=</span><span class="dv">4</span>)</span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>  <span class="co"># (Figure 4) requires an MFA fit object. Not shown by default.</span></span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>  <span class="co"># see the example in plot_fig4_loadings_heatmap</span></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>  <span class="fu">invisible</span>(df)</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>As we see, <code>read_and_visualize_all()</code>:</p>
+<ol style="list-style-type: decimal">
+<li>Uses <code>read_all_results()</code> to load all <code>.rds</code>
+files from a specified directory (<code>&quot;results&quot;</code> by
+default).<br />
+</li>
+<li>Prints <strong>Table 1</strong> (a static summary of conditions)
+using <code>make_table1()</code>.<br />
+</li>
+<li>Creates <strong>Table 2</strong> by calling
+<code>make_table2()</code>, which aggregates ARI/BIC for specified
+conditions.<br />
+</li>
+<li>Produces <strong>Figure 1</strong> (<code>plot_fig1_ARI</code>) and
+<strong>Figure 2</strong> (<code>plot_fig2_BIC_heatmap</code>) as PDF
+files.<br />
+</li>
+<li>Optionally <strong>Figure 3</strong> (boxplot) if multiple initial
+seeds are found in the data.<br />
+</li>
+<li>Returns the merged data frame <strong>invisibly</strong>, so you can
+capture it if you want more processing.</li>
+</ol>
+<hr />
+</div>
+<div id="how-to-use-it" class="section level1">
+<h1>2. How to Use It</h1>
+<p>Below is a typical workflow, assuming you have previously run some
+parallel simulation that stored multiple <code>.rds</code> results under
+<code>&quot;results/&quot;</code>. Each <code>.rds</code> might correspond to a
+different <code>(K_true, r_true, N, M, sep, noise)</code>
+combination.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load your package (which exports read_and_visualize_all, etc.)</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(MyMFApackage)   <span class="co"># for example</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Make sure you have run your simulation code, which saved .rds files in &quot;results/&quot;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Now read &amp; visualize:</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>df_all <span class="ot">&lt;-</span> <span class="fu">read_and_visualize_all</span>(<span class="st">&quot;results&quot;</span>)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co"># The function prints Table 1 &amp; 2 to console, </span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co"># and saves figure1_ARI_sep_noise.pdf, figure2_BIC_heatmap.pdf, etc. </span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co"># &#39;df_all&#39; is a data frame containing all the conditions merged together.</span></span></code></pre></div>
+<p><strong>Figure 1</strong> typically shows ARI vs. separation/noise
+for <strong>MFA</strong> and <strong>MPCA</strong>. <strong>Figure
+2</strong> is a BIC heatmap for a subset (for instance,
+<code>N==50, M==8, sep=1.0, noise=1.0</code>), focusing on the
+<code>BIC_MFA</code> across <code>(K_true, r_true)</code>. If you want
+to adjust how the figure is plotted or which subset is used, you can
+edit the function <code>plot_fig2_BIC_heatmap()</code> in your code.</p>
+<p>Similarly, <strong><code>plot_fig3_init_boxplot()</code></strong> is
+invoked if there are multiple lines in <code>df_all</code> that appear
+to have the same <code>(K_true, r_true, N, M, sep, noise)</code> but
+differ in initial seeds, so that we can see the distribution of ARI
+across repeated runs. If that’s not relevant in your setting, you can
+remove or comment out that code.</p>
+<hr />
+</div>
+<div id="customizing-the-tablesfigures" class="section level1">
+<h1>3. Customizing the Tables/Figures</h1>
+<p>You might notice that <code>make_table1()</code> returns a
+<strong>static</strong> data frame:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Parameter    Values</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="sc">-----------</span>  <span class="sc">----------------</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>True cluster <span class="fu">number</span> (K)  <span class="dv">3</span>, <span class="dv">4</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>True <span class="fu">factor</span> (PC) <span class="fu">number</span> (r) <span class="dv">3</span>, <span class="dv">5</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>Number of <span class="fu">subjects</span> (N)   <span class="dv">50</span>, <span class="dv">100</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>...</span></code></pre></div>
+<p>If your actual simulation used different or more extensive
+parameters, you can <strong>edit</strong> the content of
+<code>make_table1()</code> or rename it. Similarly,
+<code>make_table2()</code> only shows those rows where
+<code>sep == 1.0</code> and <code>noise == 1.0</code>. If you prefer a
+different subset or want to show all, you can remove that filter or
+group by different columns.</p>
+<p>The same logic applies to the figure functions: if you want a
+different color scheme, or you want <code>(K_true, r_true)</code> on the
+x-axis, you can modify the respective <code>plot_figX</code> function.
+The advantage of having them as separate exported functions is that you
+can script more advanced or custom plots in your own analysis
+scripts.</p>
+<hr />
+</div>
+<div id="next-steps" class="section level1">
+<h1>4. Next Steps</h1>
+<ul>
+<li>If you want to visualize the actual factor loadings from a final MFA
+model, see <code>plot_fig4_loadings_heatmap()</code>. That function
+expects a <strong>fit object</strong> with <code>$Lambda</code>,
+<code>$mu</code>, <code>$Psi</code>, etc., which might require you to
+store or read the entire fit object from disk (in addition to the
+single-row summary .rds).<br />
+</li>
+<li>If you want to do <strong>Windows parallel</strong> usage, see the
+comments in your simulation code. Typically, you’d replace
+<code>mclapply()</code> with <code>foreach + doParallel</code>. The
+reading and visualization steps are unaffected by OS concurrency
+differences.</li>
+</ul>
+<hr />
+</div>
+<div id="summary" class="section level1">
+<h1>5. Summary</h1>
+<p>Function <code>read_and_visualize_all()</code> automates the final
+stage of your pipeline:</p>
+<ol style="list-style-type: decimal">
+<li><strong>Reads</strong> multiple <code>.rds</code> results from a
+folder (each from a single simulation condition).<br />
+</li>
+<li><strong>Combines</strong> them into a single data frame.<br />
+</li>
+<li><strong>Creates</strong> tables summarizing the conditions (Table 1)
+and results (Table 2).<br />
+</li>
+<li><strong>Generates</strong> the main figures (ARI
+vs. separation/noise, BIC heatmap, boxplot for repeated seeds,
+etc.).<br />
+</li>
+<li>Returns the data frame invisibly, so you can do further analysis as
+needed.</li>
+</ol>
+<p>This completes your end-to-end usage: from simulating + saving
+results in parallel, to reading everything back and producing the final
+documentation for your paper or report.</p>
+<hr />
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># end of read_and_visualize vignette</span></span></code></pre></div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

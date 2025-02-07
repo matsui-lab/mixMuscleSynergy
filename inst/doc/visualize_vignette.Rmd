@@ -1,0 +1,160 @@
+---
+title: "Reading and Visualizing Results"
+author: "Yusuke Matsui"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Reading and Visualizing Results}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+This vignette demonstrates **how to use** the function `read_and_visualize_all()` to:
+
+1. **Load** previously saved simulation results (in `.rds` format) from a given directory.  
+2. Generate **Table 1** (static summary of simulation conditions).  
+3. Generate **Table 2** (aggregated ARI/BIC summary from loaded results).  
+4. Produce **Figure 1** (ARI vs. separation/noise), **Figure 2** (BIC heatmap), optionally **Figure 3** (boxplots for multiple initial seeds), and more.  
+
+We assume that the `.rds` files were created by a function like `simulate_and_run_parallel_save()`, each containing a small data frame summarizing that condition. For details on how those files are generated, see other package functions/vignettes.
+
+---
+
+# 1. The `read_and_visualize_all()` Function
+
+```{r function-doc, eval=FALSE}
+#' Read All Results and Produce Tables/Figures
+#'
+#' This function demonstrates how to read all .rds files from a directory,
+#' merge them into a single \code{data.frame}, generate a couple of tables (Table 1, Table 2),
+#' and produce various figures (Figure 1, Figure 2, etc.) saving them to files.
+#'
+#' @param result_dir Directory containing .rds result files (default "results").
+#'
+#' @return Invisibly returns the merged data frame of all results.
+#'
+#' @details
+#' The user can modify the conditions in \code{\link{make_table1}} and \code{\link{make_table2}}
+#' to match their actual experiment ranges. Figures are generated via \code{ggsave}.
+#'
+#' @examples
+#' \dontrun{
+#' df_all <- read_and_visualize_all("results")
+#' }
+#'
+#' @export
+read_and_visualize_all <- function(result_dir="results"){
+  df <- read_all_results(result_dir=result_dir)
+  
+  df_table1 <- make_table1()
+  cat("=== Table 1: Simulation Conditions ===\n")
+  print(df_table1)
+  # knitr::kable(df_table1, caption="Table 1: Conditions")
+  
+  df_table2 <- make_table2(df)
+  cat("=== Table 2: Summary of ARI etc. ===\n")
+  print(df_table2)
+  # kable(df_table2, caption="Table 2: Summary")
+  
+  p1 <- plot_fig1_ARI(df)
+  ggsave("figure1_ARI_sep_noise.pdf", p1, width=8, height=6)
+  
+  p2 <- plot_fig2_BIC_heatmap(df)
+  ggsave("figure2_BIC_heatmap.pdf", p2, width=6, height=5)
+  
+  if(nrow(df) > 1){
+    p3 <- plot_fig3_init_boxplot(df)
+    ggsave("figure3_init_boxplot.pdf", p3, width=6, height=4)
+  }
+  
+  # (Figure 4) requires an MFA fit object. Not shown by default.
+  # see the example in plot_fig4_loadings_heatmap
+  
+  invisible(df)
+}
+```
+
+As we see, `read_and_visualize_all()`:
+
+1. Uses `read_all_results()` to load all `.rds` files from a specified directory (`"results"` by default).  
+2. Prints **Table 1** (a static summary of conditions) using `make_table1()`.  
+3. Creates **Table 2** by calling `make_table2()`, which aggregates ARI/BIC for specified conditions.  
+4. Produces **Figure 1** (`plot_fig1_ARI`) and **Figure 2** (`plot_fig2_BIC_heatmap`) as PDF files.  
+5. Optionally **Figure 3** (boxplot) if multiple initial seeds are found in the data.  
+6. Returns the merged data frame **invisibly**, so you can capture it if you want more processing.
+
+---
+
+# 2. How to Use It
+
+Below is a typical workflow, assuming you have previously run some parallel simulation that stored multiple `.rds` results under `"results/"`. Each `.rds` might correspond to a different `(K_true, r_true, N, M, sep, noise)` combination.
+
+```r
+# Load your package (which exports read_and_visualize_all, etc.)
+library(MyMFApackage)   # for example
+
+# Make sure you have run your simulation code, which saved .rds files in "results/"
+
+# Now read & visualize:
+df_all <- read_and_visualize_all("results")
+
+# The function prints Table 1 & 2 to console, 
+# and saves figure1_ARI_sep_noise.pdf, figure2_BIC_heatmap.pdf, etc. 
+# 'df_all' is a data frame containing all the conditions merged together.
+```
+
+**Figure 1** typically shows ARI vs. separation/noise for **MFA** and **MPCA**. **Figure 2** is a BIC heatmap for a subset (for instance, `N==50, M==8, sep=1.0, noise=1.0`), focusing on the `BIC_MFA` across `(K_true, r_true)`. If you want to adjust how the figure is plotted or which subset is used, you can edit the function `plot_fig2_BIC_heatmap()` in your code.
+
+Similarly, **`plot_fig3_init_boxplot()`** is invoked if there are multiple lines in `df_all` that appear to have the same `(K_true, r_true, N, M, sep, noise)` but differ in initial seeds, so that we can see the distribution of ARI across repeated runs. If that’s not relevant in your setting, you can remove or comment out that code.
+
+---
+
+# 3. Customizing the Tables/Figures
+
+You might notice that `make_table1()` returns a **static** data frame:
+
+```r
+Parameter    Values
+-----------  ----------------
+True cluster number (K)  3, 4
+True factor (PC) number (r) 3, 5
+Number of subjects (N)   50, 100
+...
+```
+
+If your actual simulation used different or more extensive parameters, you can **edit** the content of `make_table1()` or rename it. Similarly, `make_table2()` only shows those rows where `sep == 1.0` and `noise == 1.0`. If you prefer a different subset or want to show all, you can remove that filter or group by different columns.
+
+The same logic applies to the figure functions: if you want a different color scheme, or you want `(K_true, r_true)` on the x-axis, you can modify the respective `plot_figX` function. The advantage of having them as separate exported functions is that you can script more advanced or custom plots in your own analysis scripts.
+
+---
+
+# 4. Next Steps
+
+- If you want to visualize the actual factor loadings from a final MFA model, see `plot_fig4_loadings_heatmap()`. That function expects a **fit object** with `$Lambda`, `$mu`, `$Psi`, etc., which might require you to store or read the entire fit object from disk (in addition to the single-row summary .rds).  
+- If you want to do **Windows parallel** usage, see the comments in your simulation code. Typically, you’d replace `mclapply()` with `foreach + doParallel`. The reading and visualization steps are unaffected by OS concurrency differences.  
+
+---
+
+# 5. Summary
+
+Function `read_and_visualize_all()` automates the final stage of your pipeline:
+
+1. **Reads** multiple `.rds` results from a folder (each from a single simulation condition).  
+2. **Combines** them into a single data frame.  
+3. **Creates** tables summarizing the conditions (Table 1) and results (Table 2).  
+4. **Generates** the main figures (ARI vs. separation/noise, BIC heatmap, boxplot for repeated seeds, etc.).  
+5. Returns the data frame invisibly, so you can do further analysis as needed.
+
+This completes your end-to-end usage: from simulating + saving results in parallel, to reading everything back and producing the final documentation for your paper or report.
+
+---
+
+```r
+# end of read_and_visualize vignette
+```

@@ -1,0 +1,195 @@
+---
+title: "Simulation"
+author: "Yusuke Matsui"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Simulation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+This vignette demonstrates how to use the functions in our **MFA/MPCA** package to:
+
+1.  **Simulate** time-series data for mixture factor or mixture PCA scenarios.
+2.  **Fit** Mixture Factor Analysis (MFA) or Mixture PCA models via EM algorithms.
+3.  **Compute BIC** to select the best number of clusters/factors.
+4.  **Run** multiple simulations in parallel, saving each condition's result to a file.
+5.  **Read** the saved results and **produce** tables (for parameter summaries, results) and figures (ARI plots, BIC heatmaps, etc.).
+
+We assume you have the following functions available (all have Roxygen-based documentation in your `R/` folder):
+
+-   `simulate_mixture_data()`\
+-   `mfa_em_fit()`\
+-   `mixture_pca_em_fit()`\
+-   `compute_bic()`\
+-   `simulate_and_run_parallel_save()`\
+-   `run_main_experiment_parallel_save()`\
+-   `read_all_results()`\
+-   `make_table1()`, `make_table2()`\
+-   `plot_fig1_ARI()`, `plot_fig2_BIC_heatmap()`, `plot_fig3_init_boxplot()`, `plot_fig4_loadings_heatmap()`\
+-   `read_and_visualize_all()`
+
+Below, we demonstrate the typical workflow.
+
+------------------------------------------------------------------------
+
+# 1. Simulating Data
+
+```{r simulate-data, eval=FALSE}
+# Suppose we want to generate a single dataset with K=3, r=4, N=50, M=8:
+sim_data <- simulate_mixture_data(
+  N=50, 
+  K=3, 
+  r=4, 
+  M=8, 
+  T_each=100, 
+  cluster_sep=1.0, 
+  noise_scale=1.0, 
+  seed=123
+)
+
+# sim_data is a list with:
+#  $list_of_data : 50 matrices (each 100 x 8)
+#  $z_true       : integer vector (50) with cluster assignments
+```
+
+You can now proceed to fit either MFA or Mixture PCA to this single dataset. But typically, we want to try multiple `(K, r)` or do a big simulation with parallelization.
+
+------------------------------------------------------------------------
+
+# 2. Fitting MFA or Mixture PCA
+
+```{r fit-models, eval=FALSE}
+# Fit MFA with some guess, e.g. K=3, r=4
+fit_mfa <- mfa_em_fit(
+  list_of_data = sim_data$list_of_data,
+  K = 3,
+  r = 4,
+  max_iter = 50,
+  tol = 1e-4
+)
+
+# fit_mfa is a list with: z, pi, mu, Lambda, Psi, logLik, resp, etc.
+
+# Fit Mixture PCA similarly
+fit_pca <- mixture_pca_em_fit(
+  list_of_data = sim_data$list_of_data,
+  K = 3,
+  r = 4,
+  max_iter = 50,
+  tol = 1e-4
+)
+
+# For each fit, you can compute BIC:
+num_rows <- sum(sapply(sim_data$list_of_data, nrow)) 
+bic_val  <- compute_bic(fit_mfa$logLik, K=3, r=4, M=8, N_total_rows=num_rows)
+cat("BIC for MFA = ", bic_val, "\n")
+```
+
+------------------------------------------------------------------------
+
+# 3. Parallel Simulation & File Saving
+
+The function `simulate_and_run_parallel_save()` automates a **grid of conditions** `(K_true, r_true, N, M, sep, noise)` and, for each condition, tries multiple `(K,r)` to find the best BIC for both MFA and MPCA. It also computes the ARI (Adjusted Rand Index) comparing the final cluster assignment with the simulation truth.
+
+```{r parallel-sim, eval=FALSE}
+df_result <- simulate_and_run_parallel_save(
+  K_true_vec = c(3,4),
+  r_true_vec = c(3,5),
+  N_vec      = c(50),
+  M_vec      = c(8,12),
+  T_each     = 100,
+  sep_vec    = c(0.5,1.0),
+  noise_vec  = c(1.0,2.0),
+  max_iter   = 20,
+  n_rep_init = 3,
+  seed_data_base = 999,
+  mc.cores = 2,       # number of parallel cores
+  output_dir = "results"  
+)
+
+# This returns a data frame summarizing each condition's best model results,
+# and also saves .rds files like "result_K3_r3_N50_M8_sep0.5_noise1.0.rds"
+# in the "results/" directory.
+```
+
+------------------------------------------------------------------------
+
+# 4. A Handy Entry-Point
+
+If you prefer a **single call** that sets up some default parameters, you can call the function `run_main_experiment_parallel_save()`. It internally calls `simulate_and_run_parallel_save()`, prints the merged data, and plots a quick figure comparing ARI between MFA and MPCA.
+
+```{r run-main, eval=FALSE}
+df_out <- run_main_experiment_parallel_save()
+head(df_out)
+```
+
+------------------------------------------------------------------------
+
+# 5. Reading & Visualizing Results
+
+When you have finished the simulation step (and each condition is saved to `.rds`), you can load everything and produce final tables/figures:
+
+```{r read-and-visualize, eval=FALSE}
+library(ggplot2)
+
+# read_and_visualize_all() will:
+#  1) read all .rds files from "results/"
+#  2) produce Table 1 (static conditions)
+#  3) produce Table 2 (ari / BIC summary) 
+#  4) create Figures 1..2..3, 
+#  5) (optionally) Figure 4 if you have a fitted object
+
+df_all <- read_and_visualize_all("results")
+head(df_all)
+```
+
+This will generate files like:
+
+-   `figure1_ARI_sep_noise.pdf`\
+-   `figure2_BIC_heatmap.pdf`\
+-   `figure3_init_boxplot.pdf` (if enough repeated inits are detected)
+
+For a more detailed breakdown, see the functions:
+
+-   `make_table1()`, `make_table2()`: Summaries in data-frame form, typically printed by `kable()`.
+-   `plot_fig1_ARI()`, `plot_fig2_BIC_heatmap()`, etc.: Each returns a ggplot object for custom usage.
+
+------------------------------------------------------------------------
+
+# 6. Example Workflow
+
+Below is a minimal example workflow you might run in your R session after installing the package:
+
+``` r
+# 1) Load your package (which includes all the .R scripts with roxygen docs).
+library(MFAPackage)  # e.g. your package name
+
+# 2) Perform the parallel simulation + save results:
+df_result <- run_main_experiment_parallel_save()
+
+# 3) In "results/" you now have multiple .rds files, each for a condition.
+
+# 4) Read them back and produce final plots/tables:
+df_all <- read_and_visualize_all("results/")
+```
+
+**Note**: If you are on Windows, you may need to replace `mclapply()` calls with `parLapply()` or `foreach + doParallel` to get actual parallel speedup.
+
+------------------------------------------------------------------------
+
+# Conclusion
+
+-   **simulate_mixture_data()**: Generate the synthetic time-series data for each subject.\
+-   **mfa_em_fit() / mixture_pca_em_fit()**: Fit the mixture model using a simplified EM.\
+-   **compute_bic()**: Compute BIC with a rough parameter count.\
+-   **simulate_and_run_parallel_save()**: Systematically explore conditions, fit best MFA & MPCA by BIC, save results.\
+-   **run_main_experiment_parallel_save()**: A convenience function that does the above with default arguments and plots a quick ARI chart.\
+-   **read_and_visualize_all()**: Merges saved results, prints tables, and generates all the main figures.

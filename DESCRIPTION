@@ -1,0 +1,18 @@
+Package: mixMuscleSynergy
+Type: Package
+Title: A Package for Mixture of Muscle Synergy Analysis
+Version: 0.1.0
+Author: Your Name
+Maintainer: Your Name <your.email@example.com>
+Description: This package provides tools for analyzing muscle synergy using 
+    various statistical methods including MPCA and MFA.
+License: GPL-3
+Encoding: UTF-8
+RoxygenNote: 7.3.2
+Imports: methods, ggplot2, dplyr, tidyr, stats, Rcpp, RcppArmadillo,
+        mvtnorm, reshape2, MASS, mclust, parallel, viridis
+LinkingTo: Rcpp,RcppArmadillo
+Suggests: knitr, rmarkdown
+VignetteBuilder: knitr
+NeedsCompilation: yes
+Packaged: 2025-02-07 17:23:45 UTC; owner
