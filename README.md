@@ -4,7 +4,7 @@
 
 ## 1. Introduction
 
-**Muscle synergy analysis** is a technique widely used in movement science, biomechanics, and rehabilitation research to decompose large-scale electromyography (EMG) time-series data into a small number of "basis vectors (synergies)" and their activation intensities (weights). However, traditional methods such as **Non-Negative Matrix Factorization (NMF)**, **Principal Component Analysis (PCA)**, and **Factor Analysis (FA)** assume a common set of synergy vectors across all subjects, making it difficult to account for potential inter-subject differences in motor control strategies.
+**Muscle synergy analysis** is a technique widely used in kinematic science, biomechanics, and rehabilitation research to decompose large-scale electromyography (EMG) time-series data into a small number of "basis vectors (synergies)" and their activation intensities (weights). However, traditional methods such as **Non-Negative Matrix Factorization (NMF)**, **Principal Component Analysis (PCA)**, and **Factor Analysis (FA)** assume a common set of synergy vectors across all subjects, making it difficult to account for potential inter-subject differences in motor control strategies.
 
 This package introduces the **Mixture Model** framework, which integrates "subgroup estimation (cluster assignment)" and "synergy basis estimation" using the **Expectation-Maximization (EM) algorithm**. Specifically, it implements:
 
