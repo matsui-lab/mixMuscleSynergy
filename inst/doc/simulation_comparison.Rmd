@@ -1,0 +1,142 @@
+---
+title: "Simulation and Comparison of MFA / MPCA with Reconstruction Error"
+author: "Yusuke Matsui"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Simulation & Comparison of MFA/MPCA with SSE}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+In this vignette, we demonstrate:
+
+1. How to **simulate** data from a factor-based mixture, with multiple subgroups each having distinct factor loadings.  
+2. How to compare **six** methods:
+
+   1. **Single FA**  
+   2. **Single PCA**  
+   3. **Two-step FA**  
+   4. **Two-step PCA**  
+   5. **Mixture FA**  
+   6. **Mixture PCA**  
+
+   by computing:
+   - **BIC** (model selection criterion),
+   - **ARI** (Adjusted Rand Index vs. true subgroups), and
+   - **Reconstruction Error** (SSE) across the entire dataset.
+
+We assume you have the following functions (all code provided in the package’s `R/` folder or references therein):
+
+- **Simulation**: `simulate_mixture_data_for_comparison()`
+- **Single-model FA/PCA**: `fit_single_factor_analysis()`, `fit_single_pca()`
+- **Reconstruction**: e.g., `calc_reconstruction_error_singleFA()`, `calc_reconstruction_error_singlePCA()`
+- **Two-step** approaches: `twostep_factor_clustering()`, `twostep_pca_clustering()`, with cluster-level re-fit
+- **Mixture**: `mfa_em_fit()`, `mixture_pca_em_fit()`, plus SSE calculation
+- **Overall** comparison function: `simulate_and_compare_methods_mfa_mpca_withSSE()`
+
+
+# 1. Simulating Data
+
+We create data from \(\mathbf{K}_{\text{true}}\) factor-model subgroups. Each cluster has its own \(\Lambda_k, \mu_k, \Psi_k\). Then \(N\) subjects are drawn from these subgroups. Example:
+
+```{r simulate-data, eval=FALSE}
+library(mixMuscleSynergy)  # or your package name
+
+set.seed(123)
+N <- 50
+K_true <- 2
+r_true <- 2
+M <- 6
+T_each <- 100
+
+sim_data <- simulate_mixture_data_for_comparison(
+  N=N, K_true=K_true, r_true=r_true, M=M, T_each=T_each, seed=123
+)
+
+list_of_data <- sim_data$list_of_data
+z_true       <- sim_data$z_true
+
+cat("True subgroup sizes:\n")
+print(table(z_true))
+```
+
+We see how many subjects in each cluster. The data are in `list_of_data`.
+
+
+# 2. Comparing Six Methods
+
+We use a unified function `simulate_and_compare_methods_mfa_mpca_withSSE(...)` that:
+
+1. Optionally simulates data internally (or you can pass in your own data).
+2. Runs:
+   - **Single FA** (no subgroups),
+   - **Single PCA** (no subgroups),
+   - **Two-step FA**,
+   - **Two-step PCA**,
+   - **Mixture FA**,
+   - **Mixture PCA**,
+3. For each approach, we compute:
+   - **BIC**,
+   - **ARI** (if a cluster assignment is produced),
+   - **SSE** (sum of squared errors in reconstruction).
+
+
+## 2.1. Running the Comparison
+
+```{r compare-methods, eval=FALSE}
+df_comp <- simulate_and_compare_methods_mfa_mpca_withSSE(
+  N=50, K_true=2, r_true=2, M=6, T_each=100, seed=123,
+  r_singleFA=2,
+  r_singlePCA=2,
+  r_subFA=1, r_clusterFA=2,
+  r_subPCA=1, r_clusterPCA=2
+)
+
+df_comp
+```
+
+
+We might see output like:
+
+```
+       Method       BIC   ARI   SSE
+1    SingleFA  1200.11   NA   9823.0
+2   SinglePCA  1210.55   NA   9990.5
+3   TwoStepFA  1105.33  0.75  8900.2
+4  TwoStepPCA  1150.10  0.68  9200.6
+5   MixtureFA  1050.01  0.92  8450.1
+6  MixturePCA  1085.20  0.80  8710.3
+```
+
+(Exact numbers are just examples.)
+
+- **BIC**: Lower is better. MixtureFA might be the best if data is truly factor-based.  
+- **ARI**: Clustering accuracy. Single-model approaches have no cluster assignment, so `NA`.  
+- **SSE**: Sum of squared errors in reconstructing all subjects’ data. MixtureFA typically yields a lower SSE than ignoring subgroups.
+
+
+# 3. Interpreting the Results
+
+- **Single-model** approaches do not segment the data by subgroup, so BIC is higher, SSE is higher, ARI is N/A.  
+- **Two-step** approaches do better than single, but sometimes not as well as a joint EM. SSE might drop, BIC might drop, but suboptimal.  
+- **Mixture** approaches typically minimize SSE (they can tailor loadings or principal directions per cluster) and produce a better BIC. Also, if the data truly has subgroups, ARI is higher.  
+
+Hence, we see the advantage of **MixtureFA** or **MixturePCA** for synergy analysis with multiple latent patterns in the population.
+
+
+# 4. Conclusion
+
+This vignette demonstrates:
+
+1. How to **simulate** factor-model mixture data.
+2. How to **fit** six different approaches: Single vs. Two-step vs. Mixture, each with FA or PCA.
+3. How to **compute** BIC, ARI, and **reconstruction SSE** for a full comparison.
+
+Such a pipeline clarifies why a mixture approach often yields better **model fit** (BIC, SSE) and better **subgroup recovery** (ARI) when the population truly contains distinct synergy patterns.

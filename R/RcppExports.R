@@ -9,8 +9,8 @@ faEMupdateCpp <- function(X, r, nIterFA) {
     .Call(`_mixMuscleSynergy_faEMupdateCpp`, X, r, nIterFA)
 }
 
-mfaTimeseriesCpp <- function(list_of_data, K, r, max_iter, nIterFA, tol) {
-    .Call(`_mixMuscleSynergy_mfaTimeseriesCpp`, list_of_data, K, r, max_iter, nIterFA, tol)
+mfaTimeseriesCpp <- function(list_of_data, K, r, max_iter, nIterFA, tol, z_init = NULL) {
+    .Call(`_mixMuscleSynergy_mfaTimeseriesCpp`, list_of_data, K, r, max_iter, nIterFA, tol, z_init)
 }
 
 dmvnormPCA_rowwiseCpp <- function(X, mu, W, sigma2) {
@@ -25,7 +25,7 @@ pcaClosedFormCpp <- function(X, r) {
     .Call(`_mixMuscleSynergy_pcaClosedFormCpp`, X, r)
 }
 
-mpcaTimeseriesCpp <- function(list_of_data, K, r, max_iter, nIterPCA, tol, method = "EM") {
-    .Call(`_mixMuscleSynergy_mpcaTimeseriesCpp`, list_of_data, K, r, max_iter, nIterPCA, tol, method)
+mpcaTimeseriesCpp <- function(list_of_data, K, r, max_iter, nIterPCA, tol, method = "EM", z_init = NULL) {
+    .Call(`_mixMuscleSynergy_mpcaTimeseriesCpp`, list_of_data, K, r, max_iter, nIterPCA, tol, method, z_init)
 }
 

@@ -12,6 +12,8 @@ simulate_and_run_parallel_save(
   T_each = 100,
   sep_vec = c(0.5, 1),
   noise_vec = c(1, 2),
+  K_candidates = 1:5,
+  r_candidates = 1:5,
   max_iter = 30,
   n_rep_init = 5,
   seed_data_base = 2023,
@@ -33,6 +35,10 @@ simulate_and_run_parallel_save(
 \item{sep_vec}{Vector of separation parameters.}
 
 \item{noise_vec}{Vector of noise scale parameters.}
+
+\item{K_candidates}{Vector of candidate K values to try.}
+
+\item{r_candidates}{Vector of candidate r values to try.}
 
 \item{max_iter}{Max iteration for EM.}
 
@@ -57,7 +63,7 @@ computes ARI, and saves the result to an \code{.rds} file per condition.
 }
 \details{
 For each condition, the function calls \code{\link{simulate_mixture_data}} to create data,
-then loops over candidate K, r in \code{1:5} (hard-coded), fits MFA and MPCA multiple times,
+then loops over candidate K, r in \code{K_candidates} and \code{r_candidates}, fits MFA and MPCA multiple times,
 picks the best BIC, and computes ARI relative to the true cluster assignment.
 
 Finally, it saves a \code{data.frame} of length 1 (or 2) in an \code{.rds} file for that condition,

@@ -39,8 +39,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // mfaTimeseriesCpp
-Rcpp::List mfaTimeseriesCpp(Rcpp::List list_of_data, int K, int r, int max_iter, int nIterFA, double tol);
-RcppExport SEXP _mixMuscleSynergy_mfaTimeseriesCpp(SEXP list_of_dataSEXP, SEXP KSEXP, SEXP rSEXP, SEXP max_iterSEXP, SEXP nIterFASEXP, SEXP tolSEXP) {
+Rcpp::List mfaTimeseriesCpp(Rcpp::List list_of_data, int K, int r, int max_iter, int nIterFA, double tol, Rcpp::Nullable<Rcpp::IntegerVector> z_init);
+RcppExport SEXP _mixMuscleSynergy_mfaTimeseriesCpp(SEXP list_of_dataSEXP, SEXP KSEXP, SEXP rSEXP, SEXP max_iterSEXP, SEXP nIterFASEXP, SEXP tolSEXP, SEXP z_initSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -50,7 +50,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
     Rcpp::traits::input_parameter< int >::type nIterFA(nIterFASEXP);
     Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
-    rcpp_result_gen = Rcpp::wrap(mfaTimeseriesCpp(list_of_data, K, r, max_iter, nIterFA, tol));
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::IntegerVector> >::type z_init(z_initSEXP);
+    rcpp_result_gen = Rcpp::wrap(mfaTimeseriesCpp(list_of_data, K, r, max_iter, nIterFA, tol, z_init));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -94,8 +95,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // mpcaTimeseriesCpp
-Rcpp::List mpcaTimeseriesCpp(Rcpp::List list_of_data, int K, int r, int max_iter, int nIterPCA, double tol, std::string method);
-RcppExport SEXP _mixMuscleSynergy_mpcaTimeseriesCpp(SEXP list_of_dataSEXP, SEXP KSEXP, SEXP rSEXP, SEXP max_iterSEXP, SEXP nIterPCASEXP, SEXP tolSEXP, SEXP methodSEXP) {
+Rcpp::List mpcaTimeseriesCpp(Rcpp::List list_of_data, int K, int r, int max_iter, int nIterPCA, double tol, std::string method, Rcpp::Nullable<Rcpp::IntegerVector> z_init);
+RcppExport SEXP _mixMuscleSynergy_mpcaTimeseriesCpp(SEXP list_of_dataSEXP, SEXP KSEXP, SEXP rSEXP, SEXP max_iterSEXP, SEXP nIterPCASEXP, SEXP tolSEXP, SEXP methodSEXP, SEXP z_initSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -106,7 +107,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type nIterPCA(nIterPCASEXP);
     Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
     Rcpp::traits::input_parameter< std::string >::type method(methodSEXP);
-    rcpp_result_gen = Rcpp::wrap(mpcaTimeseriesCpp(list_of_data, K, r, max_iter, nIterPCA, tol, method));
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::IntegerVector> >::type z_init(z_initSEXP);
+    rcpp_result_gen = Rcpp::wrap(mpcaTimeseriesCpp(list_of_data, K, r, max_iter, nIterPCA, tol, method, z_init));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -114,11 +116,11 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_mixMuscleSynergy_dmvnormFA_rowwiseCpp", (DL_FUNC) &_mixMuscleSynergy_dmvnormFA_rowwiseCpp, 4},
     {"_mixMuscleSynergy_faEMupdateCpp", (DL_FUNC) &_mixMuscleSynergy_faEMupdateCpp, 3},
-    {"_mixMuscleSynergy_mfaTimeseriesCpp", (DL_FUNC) &_mixMuscleSynergy_mfaTimeseriesCpp, 6},
+    {"_mixMuscleSynergy_mfaTimeseriesCpp", (DL_FUNC) &_mixMuscleSynergy_mfaTimeseriesCpp, 7},
     {"_mixMuscleSynergy_dmvnormPCA_rowwiseCpp", (DL_FUNC) &_mixMuscleSynergy_dmvnormPCA_rowwiseCpp, 4},
     {"_mixMuscleSynergy_pcaEMupdateCpp", (DL_FUNC) &_mixMuscleSynergy_pcaEMupdateCpp, 3},
     {"_mixMuscleSynergy_pcaClosedFormCpp", (DL_FUNC) &_mixMuscleSynergy_pcaClosedFormCpp, 2},
-    {"_mixMuscleSynergy_mpcaTimeseriesCpp", (DL_FUNC) &_mixMuscleSynergy_mpcaTimeseriesCpp, 7},
+    {"_mixMuscleSynergy_mpcaTimeseriesCpp", (DL_FUNC) &_mixMuscleSynergy_mpcaTimeseriesCpp, 8},
     {NULL, NULL, 0}
 };
 

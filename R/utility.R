@@ -34,31 +34,31 @@ compute_global_vaf_mfa <- function(list_of_data, res){
   Xhat_all <- NULL
   z_vec <- res$z
   N <- length(list_of_data)
-  
+
   for(i in seq_len(N)){
     k_i <- z_vec[i]  # cluster ID for subject i
     mu_k <- res$mu[[k_i]]
     Lambda_k <- res$Lambda[[k_i]]
     Psi_k <- res$Psi[[k_i]]
-    
+
     # observed data
     X_i <- list_of_data[[i]]  # (T_i x M)
-    
+
     # factor scores
     EZ_i <- compute_factor_scores(X_i, mu_k, Lambda_k, Psi_k)
-    
+
     # reconstruct
     Xhat_i <- EZ_i %*% t(Lambda_k)
     Xhat_i <- sweep(Xhat_i, 2, mu_k, FUN="+")
-    
+
     X_all    <- rbind(X_all, X_i)
     Xhat_all <- rbind(Xhat_all, Xhat_i)
   }
-  
+
   SSE_mat <- (X_all - Xhat_all)^2
   SSE <- sum(SSE_mat)
   SST <- sum(X_all^2)
-  
+
   vaf_global <- 1 - SSE/SST
   vaf_global
 }
@@ -67,7 +67,7 @@ compute_global_vaf_mfa <- function(list_of_data, res){
 #' Compute Factor Scores for a Single MFA Cluster
 #'
 #' Given a single cluster's parameters (\code{mu, Lambda, Psi}) and data \code{X},
-#' this function returns the estimated factor scores. 
+#' this function returns the estimated factor scores.
 #'
 #' @param X A numeric matrix of size \code{(T x M)}.
 #' @param mu A length-M mean vector.
@@ -94,17 +94,17 @@ compute_factor_scores <- function(X, mu, Lambda, Psi){
   Xc <- sweep(X, 2, mu, FUN="-")  # center
   Sigma <- Lambda %*% t(Lambda) + Psi
   diag(Sigma) <- diag(Sigma) + 1e-8  # stabil
-  
+
   L <- chol(Sigma)
   invL <- solve(L, diag(nrow(L)))
   invSigma <- t(invL) %*% invL
-  
+
   W <- t(Lambda) %*% invSigma
   A <- diag(ncol(Lambda)) + W %*% Lambda
   A_chol <- chol(A)
   A_inv <- solve(A_chol, diag(ncol(A)))
   A_inv <- t(A_inv) %*% A_inv
-  
+
   EZt <- A_inv %*% W %*% t(Xc)
   EZ  <- t(EZt)
   EZ
@@ -154,7 +154,7 @@ compute_cluster_sizes <- function(res){
 #' \item{maxClusterSize}{Maximum cluster size.}
 #'
 #' @details
-#' This function loops over each entry in \code{selection_obj$all_models}, 
+#' This function loops over each entry in \code{selection_obj$all_models},
 #' extracts the model, calls \code{\link{compute_global_vaf_mfa}} and
 #' \code{\link{compute_cluster_sizes}}, and records the results in a combined table.
 #'
@@ -174,20 +174,20 @@ posthoc_mfa_evaluation <- function(list_of_data, selection_obj){
     stop("No models found in selection_obj$all_models")
   }
   df_list <- list()
-  
+
   for(i in seq_along(all_mods)){
     obj_i <- all_mods[[i]]
     K_val <- obj_i$K
     r_val <- obj_i$r
     fit   <- obj_i$model
-    
+
     # 1) Global VAF
     gvaf_i <- compute_global_vaf_mfa(list_of_data, fit)
     # 2) cluster sizes
     size_tab <- compute_cluster_sizes(fit)
     min_size <- min(size_tab)
     max_size <- max(size_tab)
-    
+
     df_list[[i]] <- data.frame(
       K    = K_val,
       r    = r_val,
@@ -198,7 +198,7 @@ posthoc_mfa_evaluation <- function(list_of_data, selection_obj){
       maxClusterSize = max_size
     )
   }
-  
+
   df_posthoc <- dplyr::bind_rows(df_list)
   df_posthoc <- df_posthoc[order(df_posthoc$BIC), ]
   rownames(df_posthoc) <- NULL
@@ -229,7 +229,7 @@ posthoc_mfa_evaluation <- function(list_of_data, selection_obj){
 get_model_by_K_r <- function(selection_obj, K_target, r_target){
   all_mods <- selection_obj$all_models
   if(is.null(all_mods) || length(all_mods)==0) return(NULL)
-  
+
   idx <- which(
     sapply(all_mods, function(x) x$K) == K_target &
       sapply(all_mods, function(x) x$r) == r_target
@@ -328,23 +328,23 @@ posthoc_mpca_evaluation <- function(list_of_data, selection_obj){
   if(is.null(all_mods) || length(all_mods)==0){
     stop("No models found in selection_obj$all_models")
   }
-  
+
   df_list <- list()
-  
+
   for(i in seq_along(all_mods)){
     obj_i <- all_mods[[i]]
     K_val <- obj_i$K
     r_val <- obj_i$r
     fit   <- obj_i$model  # mixture PCA fit
-    
+
     # compute global VAF
     gvaf_i <- compute_global_vaf_mpca(list_of_data, fit)
-    
+
     # cluster sizes
     size_tab <- compute_cluster_sizes_mpca(fit)
     min_size <- min(size_tab)
     max_size <- max(size_tab)
-    
+
     df_list[[i]] <- data.frame(
       K = K_val,
       r = r_val,
@@ -355,7 +355,7 @@ posthoc_mpca_evaluation <- function(list_of_data, selection_obj){
       maxClusterSize = max_size
     )
   }
-  
+
   df_posthoc <- dplyr::bind_rows(df_list)
   df_posthoc <- df_posthoc[order(df_posthoc$BIC), ]
   rownames(df_posthoc) <- NULL
@@ -378,7 +378,7 @@ posthoc_mpca_evaluation <- function(list_of_data, selection_obj){
 get_model_by_K_r_mpca <- function(selection_obj, K_target, r_target){
   all_mods <- selection_obj$all_models
   if(is.null(all_mods) || length(all_mods)==0) return(NULL)
-  
+
   idx <- which(
     sapply(all_mods, function(x) x$K) == K_target &
       sapply(all_mods, function(x) x$r) == r_target
@@ -388,5 +388,224 @@ get_model_by_K_r_mpca <- function(selection_obj, K_target, r_target){
     return(NULL)
   }
   all_mods[[ idx[1] ]]$model
+}
+
+# ============================================================
+# compute_logLik_mfa
+# ============================================================
+
+#' Compute the Mixture-Model Log-Likelihood for MFA
+#'
+#' Given a fitted MFA model (with \code{K} clusters, each containing
+#' \code{Lambda[[k]]}, \code{mu[[k]]}, \code{Psi[[k]]}, and mixing proportion \code{pi[k]}),
+#' this function computes the standard mixture log-likelihood:
+#' \deqn{
+#'   \sum_{i=1}^{N} \log\left(
+#'     \sum_{k=1}^{K} \pi_k \prod_{t=1}^{T_i} \mathcal{N}(x_{i,t} \mid \mu_k, \Sigma_k)
+#'   \right),
+#' }
+#' where \(\Sigma_k = \Lambda_k \Lambda_k^T + \Psi_k\).
+#'
+#' @param list_of_data A list of length \code{N}, each an \code{(T_i x M)} matrix.
+#' @param mfa_fit A fitted MFA model, containing:
+#'   \itemize{
+#'     \item \code{K} clusters (implicit from \code{length(mfa_fit$Lambda)}),
+#'     \item \code{Lambda[[k]]}, \code{mu[[k]]}, \code{Psi[[k]]},
+#'     \item \code{pi} as a length-K vector of mixing proportions.
+#'   }
+#'
+#' @return A numeric scalar, the total log-likelihood.
+#'
+#' @details
+#' Internally uses rowwise multivariate normal densities. You will need
+#' \code{mvtnorm::dmvnorm} or an equivalent. Ensure each \(\Sigma_k\) is well-defined
+#' and invertible if needed.
+#'
+#' @export
+compute_logLik_mfa <- function(list_of_data, mfa_fit) {
+  if(!requireNamespace("mvtnorm", quietly=TRUE)) {
+    stop("Package 'mvtnorm' is required for compute_logLik_mfa. Please install it.")
+  }
+
+  Lambda_list <- mfa_fit$Lambda
+  mu_list     <- mfa_fit$mu
+  Psi_list    <- mfa_fit$Psi
+  pi_vec      <- mfa_fit$pi   # length K
+
+  K <- length(Lambda_list)
+  N <- length(list_of_data)
+
+  # Precompute Sigma_k for each cluster
+  Sigma_list <- vector("list", K)
+  for(k in seq_len(K)) {
+    Lam_k <- Lambda_list[[k]]
+    Psi_k <- Psi_list[[k]]
+    Sig_k <- Lam_k %*% t(Lam_k) + Psi_k
+    Sigma_list[[k]] <- Sig_k
+  }
+
+  total_loglik <- 0
+  for(i in seq_len(N)) {
+    X_i <- list_of_data[[i]]
+    T_i <- nrow(X_i)
+    logvals <- numeric(K)
+
+    # For each cluster k, compute log(pi_k) + sum of rowwise log density
+    for(k in seq_len(K)) {
+      mu_k  <- mu_list[[k]]
+      Sig_k <- Sigma_list[[k]]
+      # rowwise log densities
+      dens_vec <- mvtnorm::dmvnorm(X_i, mean=mu_k, sigma=Sig_k, log=TRUE)
+      sum_logdens <- sum(dens_vec)
+      logvals[k] <- log(pi_vec[k] + 1e-16) + sum_logdens
+    }
+    # mixture log-likelihood for subject i
+    # log( sum_k exp(logvals[k]) )
+    # use a stable log-sum-exp
+    maxv <- max(logvals)
+    logLi <- maxv + log(sum(exp(logvals - maxv)))
+    total_loglik <- total_loglik + logLi
+  }
+
+  total_loglik
+}
+
+#' Compute BIC for an MFA model
+#'
+#' Given the log-likelihood from \code{\link{compute_logLik_mfa}}, and known
+#' \code{K}, \code{r}, \code{M}, \code{N}, this function computes
+#' \deqn{ \mathrm{BIC} = -2 \log \mathcal{L} + \nu \log(N), }
+#' where \(\nu\) is a naive parameter count for the MFA model. A typical formula is
+#' \eqn{\nu = K \times M \times (r + 2) + (K - 1).}
+#'
+#' @param loglik The total log-likelihood from \code{compute_logLik_mfa}.
+#' @param K Number of clusters.
+#' @param r Factor dimension.
+#' @param M Observed dimension (channels).
+#' @param N Number of subjects.
+#'
+#' @return A numeric BIC value.
+#'
+#' @details
+#' The parameter count may vary depending on how you treat diagonal Psi, means, etc.
+#' A common approximation is \code{K * M * (r + 2) + (K - 1)}. Adapt if your parameterization differs.
+#'
+#' @export
+compute_BIC_mfa <- function(loglik, K, r, M, N) {
+  # naive param count
+  # e.g., K * M*(r + 2) + (K - 1)
+  #  - for each cluster:
+  #    * M*r loadings
+  #    * M diagonal Psi
+  #    * M for mu? sometimes we do M*(r + M)? or M(r + 1)? ...
+  # user can adapt
+  param_count <- K * M * (r + 2) + (K - 1)
+
+  BIC_val <- -2 * loglik + param_count * log(N)
+  BIC_val
+}
+
+# ============================================================
+# compute_logLik_mpca
+# ============================================================
+
+#' Compute the Mixture-Model Log-Likelihood for Mixture PCA
+#'
+#' Given a fitted Mixture PCA model with \code{$P[[k]]}, \code{$mu[[k]]},
+#' \code{$sigma2[k]}, and \code{$pi[k]}, we compute
+#' \deqn{
+#'   \sum_{i=1}^{N} \log\Bigl(\sum_{k=1}^{K} \pi_k
+#'     \prod_{t=1}^{T_i}\mathcal{N}\bigl(x_{i,t}\mid \mu_k,\Sigma_k\bigr)\Bigr)
+#' }
+#' where \(\Sigma_k = W_k W_k^T + \sigma2_k I\). A typical approach is to
+#' reconstruct \(\Sigma_k\) from \(\mathrm{P}[[k]]\) if needed (or \(\mathrm{W}[[k]]\)).
+#'
+#' @param list_of_data A list of length \code{N}, each \code{(T_i x M)}.
+#' @param mpca_fit A fitted Mixture PCA model, containing:
+#'   \itemize{
+#'     \item \code{P[[k]]} or \code{W[[k]]} for cluster \code{k},
+#'     \item \code{mu[[k]]}, \code{sigma2[k]}, \code{pi[k]}.
+#'   }
+#'
+#' @return A numeric scalar, the total mixture log-likelihood.
+#'
+#' @details
+#' We assume each cluster k has \(\Sigma_k = W_k W_k^T + \sigma2_k I\).
+#' You must assemble that to call \code{mvtnorm::dmvnorm} row by row.
+#'
+#' @export
+compute_logLik_mpca <- function(list_of_data, mpca_fit) {
+  if(!requireNamespace("mvtnorm", quietly=TRUE)) {
+    stop("Package 'mvtnorm' is required for compute_logLik_mpca. Please install it.")
+  }
+  #browser()
+  P_list    <- mpca_fit$P  # or mpca_fit$W
+  mu_list   <- mpca_fit$mu
+  sigma2vec <- mpca_fit$sigma2
+  pi_vec    <- mpca_fit$pi
+
+
+  K <- length(P_list)
+  N <- length(list_of_data)
+
+  # Precompute Sigma_k
+  Sigma_list <- vector("list", K)
+  for(k in seq_len(K)) {
+    P_k  <- P_list[[k]]  # (M x r)
+    M    <- nrow(P_k)
+    sig2 <- sigma2vec[k]
+    # W_k W_k^T + sig2 I
+    # here W_k = P_k * some scale? or if P_k is the final W? adapt if needed
+    # We'll treat P_k as W_k directly, you might adapt code if you have D_k
+    Sig_k <- P_k %*% t(P_k)
+    diag(Sig_k) <- diag(Sig_k) + sig2
+    Sigma_list[[k]] <- Sig_k
+  }
+
+  total_loglik <- 0
+  for(i in seq_len(N)) {
+    X_i <- list_of_data[[i]]
+    T_i <- nrow(X_i)
+    logvals <- numeric(K)
+
+    for(k in seq_len(K)) {
+      mu_k  <- mu_list[[k]]
+      Sig_k <- Sigma_list[[k]]
+      dens_vec <- mvtnorm::dmvnorm(X_i, mean=mu_k, sigma=Sig_k, log=TRUE)
+      sum_logdens <- sum(dens_vec)
+      logvals[k] <- log(pi_vec[k] + 1e-16) + sum_logdens
+    }
+    maxv <- max(logvals)
+    logLi <- maxv + log(sum(exp(logvals - maxv)))
+    total_loglik <- total_loglik + logLi
+  }
+
+  total_loglik
+}
+
+#' Compute BIC for a Mixture PCA Model
+#'
+#' Given the log-likelihood from \code{\link{compute_logLik_mpca}}, and the
+#' number of clusters \code{K}, dimension \code{r}, etc., this function
+#' computes a naive BIC:
+#' \deqn{ \mathrm{BIC} = -2 \log \mathcal{L} + \nu \log(N), }
+#' where \(\nu\) is a parameter count for MPCA. One might use
+#' \code{K*(M*r + M + 1) + (K-1)} as a rough approximation, i.e. for each cluster
+#' we have \code{(M*r)} for the directions, \code{M} for the mean, and \code{1}
+#' for \(\sigma^2\). Then \code{(K-1)} for mixing proportions.
+#'
+#' @param loglik The total mixture log-likelihood from \code{compute_logLik_mpca}.
+#' @param K Number of clusters.
+#' @param r Dimension of principal components.
+#' @param M Observed dimension.
+#' @param N Number of subjects.
+#'
+#' @return A numeric BIC value.
+#' @export
+compute_BIC_mpca <- function(loglik, K, r, M, N) {
+  # naive param_count: K*(M*r + M + 1) + (K - 1)
+  param_count <- K * (M*r + M + 1) + (K - 1)
+  BIC_val <- -2 * loglik + param_count * log(N)
+  BIC_val
 }
 

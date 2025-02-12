@@ -15,4 +15,4 @@ LinkingTo: Rcpp,RcppArmadillo
 Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
 NeedsCompilation: yes
-Packaged: 2025-02-07 17:23:45 UTC; owner
+Packaged: 2025-02-12 17:03:29 UTC; owner

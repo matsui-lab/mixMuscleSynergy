@@ -5,9 +5,7 @@ using namespace Rcpp;
 using namespace arma;
 
 /************************************************************
- * dmvnormPCA_rowwiseCpp:
- *   Sigma = W*W^T + sigma2 * I  を用いた多次元正規の対数密度
- *   (サンプル行ごと) を計算してベクトル返却（シングルスレッド）
+ * dmvnormPCA_rowwiseCpp
  ************************************************************/
 // [[Rcpp::export]]
 arma::vec dmvnormPCA_rowwiseCpp(const arma::mat &X,
@@ -15,75 +13,62 @@ arma::vec dmvnormPCA_rowwiseCpp(const arma::mat &X,
                                 const arma::mat &W,
                                 double sigma2)
 {
-  int T = X.n_rows;  // サンプル数
-  int M = X.n_cols;  // 次元
-  
-  // 共分散行列 Sigma = W W^T + sigma2 * I
+  int T = X.n_rows;
+  int M = X.n_cols;
+
+  // Sigma = W W^T + sigma2 I
   mat Sigma = W * W.t();
   Sigma.diag() += sigma2;
-  // 数値安定化
+  // 数値安定
   Sigma.diag() += 1e-8;
-  
-  // chol
+
   mat L = chol(Sigma, "lower");
-  
-  // logdet(Sigma)
+
   double logdetSigma = 0.0;
   for(int m=0; m<M; m++){
     logdetSigma += 2.0 * std::log(L(m,m));
   }
-  double log2pi = std::log(2.0 * M_PI);
-  double Mlog2pi = M * log2pi;
-  
-  // L^-1
+  double Mlog2pi = M * std::log(2.0 * M_PI);
+
+  // invert L
   mat Linv = inv(trimatl(L));
-  
-  // 出力
+
   arma::vec out(T, fill::zeros);
-  
   for(int i=0; i<T; i++){
-    vec diff = X.row(i).t() - mu;  // (M×1)
-    vec z = Linv * diff;          // (M×1)
+    vec diff = X.row(i).t() - mu;
+    vec z = Linv * diff;
     double quadform = dot(z,z);
     double val = -0.5 * (Mlog2pi + logdetSigma + quadform);
     out[i] = val;
   }
-  
   return out;
 }
 
 /************************************************************
- * pcaEMupdateCpp:
- *   単一クラスタ PPCA を EM で推定する関数
- *   - 引数:
- *       X: (n×M) 行列データ
- *       r: 潜在次元
- *       nIter: EM反復回数
- *   - 戻り値: List (mu, W, sigma2)
+ * pcaEMupdateCpp
  ************************************************************/
 // [[Rcpp::export]]
 Rcpp::List pcaEMupdateCpp(const arma::mat &X, int r, int nIter)
 {
-  int n = X.n_rows;  // サンプル数
-  int M = X.n_cols;  // 次元
-  
-  // 平均ベクトル
-  rowvec mu_r = mean(X, 0);  
-  // 中心化
+  int n = X.n_rows;
+  int M = X.n_cols;
+
+  // mean
+  rowvec mu_r = mean(X, 0);
   mat Xc = X;
   for(int i=0; i<n; i++){
     Xc.row(i) -= mu_r;
   }
-  
-  // 初期 W => PCA的に SVD (Xc = U S V^T)
+
+  // init W by SVD
   mat U, V;
   vec S;
   svd(U, S, V, Xc);
-  mat Vr = V.cols(0, r-1);            // (M×r)
-  vec sr = S.subvec(0, r-1);         // r個
-  mat W = Vr * diagmat(sr / std::sqrt((double)n));  // (M×r)
-  
-  // 初期 sigma^2
+  mat Vr = V.cols(0, r-1);
+  vec sr = S.subvec(0, r-1);
+  mat W = Vr * diagmat(sr / std::sqrt((double)n));
+
+  // init sigma^2
   double sigma2 = 1.0;
   if(r < M){
     double extraVar = 0.0;
@@ -93,97 +78,75 @@ Rcpp::List pcaEMupdateCpp(const arma::mat &X, int r, int nIter)
     extraVar /= double(M - r);
     sigma2 = extraVar;
   }
-  
-  // EM反復
+
+  // EM
   for(int it=0; it<nIter; it++){
-    // Sigma = W W^T + sigma^2 I
     mat Sigma = W * W.t();
     Sigma.diag() += sigma2;
-    // 数値安定
     Sigma.diag() += 1e-8;
-    
+
     mat L = chol(Sigma, "lower");
     mat invL = inv(trimatl(L));
-    mat invSigma = invL.t() * invL;  // (M×M)
-    
-    // Mmat = I_r + W^T * invSigma * W
-    mat WtSi = W.t() * invSigma;           // (r×M)
-    mat Mmat = eye(r, r) + WtSi * W;       // (r×r)
+    mat invSigma = invL.t() * invL;  // (M x M)
+
+    mat WtSi = W.t() * invSigma;     // (r x M)
+    mat Mmat = eye(r, r) + WtSi * W; // (r x r)
     mat M_chol = chol(Mmat, "lower");
-    mat M_inv = inv(trimatu(M_chol));      
-    M_inv = M_inv * M_inv.t();            // Mmat^-1
-    
-    // E[Z] = Mmat^-1 * W^T * invSigma * Xc^T
-    mat EZ = M_inv * WtSi * Xc.t();       // (r×n)
-    
-    // E[Z Z^T] = (1/n) EZ * EZ^T + M_inv
+    mat M_inv = inv(trimatu(M_chol));
+    M_inv = M_inv * M_inv.t();
+
+    mat EZ = M_inv * WtSi * Xc.t();  // (r x n)
     mat EZZt = (EZ * EZ.t()) / double(n);
     EZZt += M_inv;
-    
-    // W_new
-    mat XcEZt = (Xc.t() * EZ.t()) / double(n); // (M×r)
+
+    mat XcEZt = (Xc.t() * EZ.t()) / double(n);
     mat EZZt_inv = inv(EZZt + 1e-12 * eye(r,r));
     mat W_new = XcEZt * EZZt_inv;
-    
-    // sigma2_new
-    mat Sxx = (Xc.t() * Xc) / double(n); // (M×M)
-    mat tmp = W_new * XcEZt.t();        // (M×M)
+
+    // sigma2 update
+    mat Sxx = (Xc.t() * Xc) / double(n);
+    mat tmp = W_new * XcEZt.t();
     mat residual = Sxx - tmp;
-    double traceVal = arma::accu(residual.diag());
+    double traceVal = accu(residual.diag());
     double new_sigma2 = traceVal / double(M);
     if(new_sigma2 < 1e-12) new_sigma2 = 1e-12;
-    
-    // 更新
+
     W = W_new;
     sigma2 = new_sigma2;
   }
-  
-  List out;
-  out["mu"]     = mu_r.t();  // (M×1)
-  out["W"]      = W;         // (M×r)
-  out["sigma2"] = sigma2;    // スカラー
+
+  Rcpp::List out;
+  out["mu"]     = mu_r.t();
+  out["W"]      = W;
+  out["sigma2"] = sigma2;
   return out;
 }
 
 /************************************************************
- * pcaClosedFormCpp:
- *   単一クラスタ PPCA の "解析解(閉形式)" を
- *   SVD から直接求める関数
- *   - 引数:
- *       X: (n×M)
- *       r: 潜在次元
- *   - 戻り値: List (mu, W, sigma2)
- *
- *   ※ Bishopの論文(Tipping & Bishop 1999) などで知られる
- *     PPCAの解析解を用いた実装例
+ * pcaClosedFormCpp
  ************************************************************/
 // [[Rcpp::export]]
 Rcpp::List pcaClosedFormCpp(const arma::mat &X, int r)
 {
   int n = X.n_rows;
   int M = X.n_cols;
-  
-  // 平均ベクトル
+
+  // mean
   rowvec mu_r = mean(X, 0);
-  
-  // 中心化
   mat Xc = X;
   for(int i=0; i<n; i++){
     Xc.row(i) -= mu_r;
   }
-  
-  // SVD: Xc = U S V^T
-  //  S: singular values (>=0)
+
+  // SVD
   mat U, V;
   vec S;
   svd(U, S, V, Xc);
-  
-  // 寄与度の大きい r 成分を取り出す
-  mat Vr = V.cols(0, r-1);         // (M×r)
-  vec Sr = S.subvec(0, r-1);       // 長さ r
-  
-  // 固有値 λ_j = (S_j^2 / n)
-  // 残差の分散 sigma^2 = 平均 (λ_j) for j=r..(M-1)
+
+  mat Vr = V.cols(0, r-1);
+  vec Sr = S.subvec(0, r-1);
+
+  // leftover var => sigma2
   double sigma2 = 0.0;
   if(r < M){
     double sumLeft = 0.0;
@@ -193,41 +156,30 @@ Rcpp::List pcaClosedFormCpp(const arma::mat &X, int r)
     }
     sigma2 = sumLeft / double(M - r);
   } else {
-    // r = M の場合は残差ゼロにする
-    sigma2 = 1e-12;  // 数値的に完全0だと不安定になりやすいので微小値
+    sigma2 = 1e-12;
   }
-  
-  // W = V_r * (Lambda_r - sigma^2 I)^(1/2)
-  //    ただし Lambda_r = diag( S_r^2 / n )
-  //    要素ごとに sqrt(...) が負にならないよう注意
+
+  // W
   mat W = arma::zeros(M, r);
   for(int j=0; j<r; j++){
-    double lam_j = (Sr[j]*Sr[j]) / double(n); // S_j^2 / n
+    double lam_j = (Sr[j]*Sr[j]) / double(n);
     double diff_j = lam_j - sigma2;
-    if(diff_j < 1e-12) diff_j = 1e-12; // 数値的補正
+    if(diff_j < 1e-12) diff_j = 1e-12;
     double scale_j = std::sqrt(diff_j);
-    // W.col(j) = V_r.col(j) * scale_j
     W.col(j) = Vr.col(j) * scale_j;
   }
-  
-  // 出力
-  List out;
-  out["mu"]     = mu_r.t(); // (M×1)
-  out["W"]      = W;        // (M×r)
+
+  Rcpp::List out;
+  out["mu"]     = mu_r.t();
+  out["W"]      = W;
   out["sigma2"] = sigma2;
   return out;
 }
 
 /************************************************************
  * mpcaTimeseriesCpp:
- *   複数の時系列(行列)からなる list_of_data に対して
- *   Kクラスタの混合 PPCA を推定
- *
- *   - method = "EM"        => pcaEMupdateCpp を用いる
- *   - method = "closed_form" => pcaClosedFormCpp を用いる
- *
- *   ※ "closed_form" 選択時は、M-stepで各クラスタに属するデータを
- *     一括で縦連結し、SVDから直接パラメータを求めます(1回で終わり)。
+ *   ハード割当Mixture PCA
+ *   初期クラスタ z_init があれば使用、なければ (i%K)+1
  ************************************************************/
 // [[Rcpp::export]]
 Rcpp::List mpcaTimeseriesCpp(Rcpp::List list_of_data,
@@ -236,59 +188,68 @@ Rcpp::List mpcaTimeseriesCpp(Rcpp::List list_of_data,
                              int max_iter,
                              int nIterPCA,
                              double tol,
-                             std::string method = "EM")
+                             std::string method = "EM",
+                             Rcpp::Nullable<Rcpp::IntegerVector> z_init = R_NilValue)
 {
-  int N = list_of_data.size();  // データ数(系列数)
+  int N = list_of_data.size();
   if(N < 1) stop("No data in list_of_data");
-  
-  // 最初のデータから列数(次元)を取得
+
+  // get M from the first item
   NumericMatrix firstMat = list_of_data[0];
   int M = firstMat.ncol();
-  
-  // 初期クラスタ割当
+
+  // initial cluster assignment
   IntegerVector zR(N);
-  for(int i=0; i<N; i++){
-    zR[i] = (i % K) + 1; // 1～K
+  if(z_init.isNotNull()){
+    Rcpp::IntegerVector zz(z_init.get());
+    if(int(zz.size()) != N){
+      stop("z_init size != N");
+    }
+    for(int i=0; i<N; i++){
+      if(zz[i] < 1 || zz[i] > K){
+        stop("z_init has out-of-range cluster label");
+      }
+      zR[i] = zz[i];
+    }
+  } else {
+    for(int i=0; i<N; i++){
+      zR[i] = (i % K) + 1;
+    }
   }
-  
-  // パラメータ
+
+  // parameters
   std::vector<arma::mat> W(K);
   std::vector<arma::vec> mu(K);
   std::vector<double> sigma2(K);
-  
-  // ランダム初期
+
+  // initialize
   std::srand(123);
   for(int k=0; k<K; k++){
-    W[k] = 0.01 * arma::randn<arma::mat>(M, r); // (M×r)
-    mu[k] = arma::vec(M, fill::zeros);
+    W[k] = 0.01 * arma::randn<arma::mat>(M, r);
+    mu[k]= arma::vec(M, fill::zeros);
     sigma2[k] = 0.1;
   }
-  // クラスタ比
+
   arma::vec pi_k(K, fill::value(1.0 / double(K)));
-  
   double old_loglik = -1e15;
-  
-  // EMループ
+
   for(int iterEM = 1; iterEM <= max_iter; iterEM++){
-    
-    //======================
-    // M-step
-    //======================
-    for(int k=0; k<K; k++){
-      // クラスタ k に属するデータ(行列)のインデックス
+
+    // ============ M-step ============
+    for(int k2=0; k2<K; k2++){
       std::vector<int> idx;
       idx.reserve(N);
       for(int i=0; i<N; i++){
-        if(zR[i] == (k+1)) {
+        if(zR[i] == (k2+1)) {
           idx.push_back(i);
         }
       }
       if(idx.empty()) {
-        // 該当データなし -> 更新しない
+        // skip
         continue;
       }
-      
-      // 該当データを縦連結
+
+      // concat data
       long totalT = 0;
       for(size_t ii=0; ii<idx.size(); ii++){
         NumericMatrix mat_i = list_of_data[idx[ii]];
@@ -308,38 +269,29 @@ Rcpp::List mpcaTimeseriesCpp(Rcpp::List list_of_data,
           }
         }
       }
-      
-      // ---------------------------
-      // method で単一クラスタ推定を切り替え
-      // ---------------------------
-      if(method == "EM") {
-        // pcaEMupdateCpp (EM反復)
-        Rcpp::List pcaRes = pcaEMupdateCpp(X_k, r, nIterPCA);
-        mu[k]     = as<arma::vec>(pcaRes["mu"]);
-        W[k]      = as<arma::mat>(pcaRes["W"]);
-        sigma2[k] = as<double>(pcaRes["sigma2"]);
-        
-      } else if(method == "closed_form") {
-        // pcaClosedFormCpp (解析解)
-        Rcpp::List pcaRes = pcaClosedFormCpp(X_k, r);
-        mu[k]     = as<arma::vec>(pcaRes["mu"]);
-        W[k]      = as<arma::mat>(pcaRes["W"]);
-        sigma2[k] = as<double>(pcaRes["sigma2"]);
-        
+
+      // single-cluster PPCA
+      Rcpp::List pcaRes;
+      if(method == "EM"){
+        pcaRes = pcaEMupdateCpp(X_k, r, nIterPCA);
+      } else if(method=="closed_form"){
+        pcaRes = pcaClosedFormCpp(X_k, r);
       } else {
-        Rcpp::stop("method must be either 'EM' or 'closed_form'");
+        Rcpp::stop("method must be 'EM' or 'closed_form'.");
       }
+
+      mu[k2]     = as<arma::vec>(pcaRes["mu"]);
+      W[k2]      = as<arma::mat>(pcaRes["W"]);
+      sigma2[k2] = as<double>(pcaRes["sigma2"]);
     }
-    
-    //======================
-    // E-step
-    //======================
+
+    // ============ E-step ============
     arma::mat logLik_i(N, K, fill::zeros);
     arma::vec logPi(K, fill::zeros);
     for(int k2=0; k2<K; k2++){
       logPi[k2] = std::log(pi_k[k2] + 1e-16);
     }
-    
+
     for(int i=0; i<N; i++){
       NumericMatrix mat_i = list_of_data[i];
       int Ti = mat_i.nrow();
@@ -350,15 +302,14 @@ Rcpp::List mpcaTimeseriesCpp(Rcpp::List list_of_data,
         }
       }
       for(int k2=0; k2<K; k2++){
-        // 対数尤度 (dmvnormPCA_rowwiseCpp)
         arma::vec lvec = dmvnormPCA_rowwiseCpp(Xi, mu[k2], W[k2], sigma2[k2]);
         double sumLog = arma::accu(lvec);
-        logLik_i(i,k2) = logPi[k2] + sumLog;
+        logLik_i(i, k2) = logPi[k2] + sumLog;
       }
     }
-    
-    // z 更新 (ハード割当)
-    arma::vec rowMax = arma::max(logLik_i, 1); // (N)
+
+    // Hard assignment
+    arma::vec rowMax = arma::max(logLik_i, 1);
     IntegerVector zR_new(N);
     for(int i=0; i<N; i++){
       double bestVal = -1e15;
@@ -372,23 +323,23 @@ Rcpp::List mpcaTimeseriesCpp(Rcpp::List list_of_data,
       }
       zR_new[i] = bestk;
     }
-    
-    // pi_k 更新
+
+    // pi_k update
     for(int k2=0; k2<K; k2++){
-      int countk = 0;
+      int countk=0;
       for(int i=0; i<N; i++){
-        if(zR_new[i] == (k2+1)) {
+        if(zR_new[i] == (k2+1)){
           countk++;
         }
       }
       pi_k[k2] = double(countk) / double(N);
     }
-    
-    // 対数尤度
+
+    // log-likelihood
     double new_loglik = arma::accu(rowMax);
     double diff = std::fabs(new_loglik - old_loglik);
-    
-    // 収束判定1: 割当が変わらなければ終了
+
+    // check for assignment convergence
     bool sameAll = true;
     for(int i=0; i<N; i++){
       if(zR[i] != zR_new[i]){
@@ -396,30 +347,29 @@ Rcpp::List mpcaTimeseriesCpp(Rcpp::List list_of_data,
         break;
       }
     }
-    if(sameAll){
-      Rcpp::Rcout << "Converged by assignment at iter=" << iterEM << "\n";
-      zR = zR_new;
-      break;
+    if(iterEM >= 5){
+      if(sameAll){
+        Rcpp::Rcout << "Converged by assignment at iter=" << iterEM << "\n";
+        zR = zR_new;
+        break;
+      }
+      if(diff < tol){
+        Rcpp::Rcout << "Converged by loglik diff at iter=" << iterEM
+                    << " diff=" << diff << "\n";
+        zR = zR_new;
+        break;
+      }
     }
-    // 収束判定2: 対数尤度の差分
-    if(diff < tol){
-      Rcpp::Rcout << "Converged by loglik diff at iter=" << iterEM
-                  << " diff=" << diff << "\n";
-      zR = zR_new;
-      break;
-    }
-    
-    // 更新
     zR = zR_new;
     old_loglik = new_loglik;
   }
-  
-  // 結果をリスト化
-  //   z_out, W_out, mu_out, sigma2_out, pi_out
+
+  // final output
   Rcpp::IntegerVector z_out(N);
   for(int i=0; i<N; i++){
     z_out[i] = zR[i];
   }
+
   Rcpp::List W_out(K), Mu_out(K);
   NumericVector sigma2_out(K), pi_out(K);
   for(int k=0; k<K; k++){
@@ -428,13 +378,13 @@ Rcpp::List mpcaTimeseriesCpp(Rcpp::List list_of_data,
     sigma2_out[k]  = sigma2[k];
     pi_out[k]      = pi_k[k];
   }
-  
+
   Rcpp::List ret;
   ret["z"]      = z_out;
   ret["W"]      = W_out;
   ret["mu"]     = Mu_out;
   ret["sigma2"] = sigma2_out;
   ret["pi"]     = pi_out;
-  
+
   return ret;
 }
