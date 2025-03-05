@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Yusuke Matsui" />
+
+<meta name="date" content="2025-03-06" />
+
+<title>Mixture-Based Muscle Synergy Analysis (MFA &amp; MPCA)</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Mixture-Based Muscle Synergy Analysis (MFA
+&amp; MPCA)</h1>
+<h4 class="author">Yusuke Matsui</h4>
+<h4 class="date">2025-03-06</h4>
+
+
+
+<div id="background" class="section level2">
+<h2>1. Background</h2>
+<p>Muscle synergy analysis is often applied to reduce high-dimensional
+electromyographic (EMG) signals into a smaller set of “synergies” or
+activation patterns. Two mixture-based methods for identifying
+<strong>group-level</strong> synergies in heterogeneous populations
+are:</p>
+<ol style="list-style-type: decimal">
+<li><strong>Mixture Factor Analysis (MFA)</strong>: Assumes each
+cluster’s covariance is decomposed by a Factor Analysis model with
+diagonal noise.<br />
+</li>
+<li><strong>Mixture PCA (MPCA)</strong>: Assumes each cluster is modeled
+by a probabilistic PCA approach with <span class="math inline">\(\sigma^2 I\)</span> noise.</li>
+</ol>
+<p>Both approaches can handle heterogeneous data, grouping subjects (or
+trials) into different synergy “clusters,” each with its own synergy
+loadings.</p>
+<p>Compared to a single global factor/PCA decomposition, mixture-based
+approaches can uncover fundamentally different synergy patterns in
+subpopulations (e.g. half the subjects might use synergy pattern A, the
+other half synergy pattern B).</p>
+</div>
+<div id="method-overview-and-effective-use-cases" class="section level2">
+<h2>2. Method Overview and Effective Use Cases</h2>
+<div id="mixture-factor-analysis-mfa" class="section level3">
+<h3>2.1 Mixture Factor Analysis (MFA)</h3>
+<ol style="list-style-type: decimal">
+<li><p><strong>Cluster membership</strong><br />
+Each subject <span class="math inline">\(i\)</span> belongs to one of
+<span class="math inline">\(K\)</span> clusters with probability <span class="math inline">\(\pi_k\)</span>.</p></li>
+<li><p><strong>Factor model per cluster</strong><br />
+Within cluster <span class="math inline">\(k\)</span>, each subject’s
+data <span class="math inline">\(X_i\)</span> (dimension <span class="math inline">\(\text{time} \times M\)</span>) follows a
+low-dimensional factor model: <span class="math display">\[
+  X_i(t) = \mu_k + \Lambda_k \, Z_i(t) + \varepsilon_{i,t},
+\]</span> where <span class="math inline">\(\mu_k\)</span> is the mean
+vector, <span class="math inline">\(\Lambda_k\)</span> is <span class="math inline">\((M \times r)\)</span> factor loadings (synergy
+matrix), and <span class="math inline">\(\varepsilon_{i,t}\)</span> ~
+<span class="math inline">\(\mathcal{N}(0, \Psi_k)\)</span> with <span class="math inline">\(\Psi_k\)</span> diagonal.</p></li>
+</ol>
+</div>
+<div id="mixture-pca-mpca" class="section level3">
+<h3>2.2 Mixture PCA (MPCA)</h3>
+<p>Similarly, we can define a mixture of probabilistic PCA (PPCA)
+models:</p>
+<ol style="list-style-type: decimal">
+<li><p><strong>Cluster membership</strong><br />
+Each subject <span class="math inline">\(i\)</span> belongs to one of
+<span class="math inline">\(K\)</span> clusters with probability <span class="math inline">\(\pi_k\)</span>.</p></li>
+<li><p><strong>PCA model per cluster</strong><br />
+Data <span class="math inline">\(X_i(t)\)</span> is modeled with <span class="math display">\[
+  X_i(t) = \mu_k + W_k \, Z_i(t) + \varepsilon_{i,t},
+\]</span> where <span class="math inline">\(W_k\)</span> is <span class="math inline">\((M \times r)\)</span>. The noise is isotropic
+<span class="math inline">\(\sigma^2_k I\)</span>. Often, we factor
+<span class="math inline">\(W_k = P_k D_k\)</span> for orthonormal <span class="math inline">\(P_k\)</span> and diagonal <span class="math inline">\(D_k\)</span>.</p></li>
+</ol>
+<p><strong>Use cases</strong>: - <strong>Heterogeneous
+populations</strong><br />
+E.g. subsets of participants with distinct synergy structures.<br />
+- <strong>Large datasets</strong><br />
+Enough participants/trials to fit multiple clusters.<br />
+- <strong>Exploratory approach</strong><br />
+You suspect more than one synergy pattern set in the population.</p>
+</div>
+</div>
+<div id="data-input-format" class="section level2">
+<h2>3. Data (Input) Format</h2>
+<p>All the provided functions assume:</p>
+<ul>
+<li><strong><code>list_of_data</code></strong>: A list of length <span class="math inline">\(N\)</span>, where each element is a <span class="math inline">\((T_i \times M)\)</span> matrix:
+<ul>
+<li><span class="math inline">\(N\)</span>: number of
+subjects/trials.</li>
+<li><span class="math inline">\(T_i\)</span>: time points for subject
+<span class="math inline">\(i\)</span>.</li>
+<li><span class="math inline">\(M\)</span>: number of EMG channels
+(muscles).</li>
+</ul></li>
+</ul>
+<p>Example:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>N <span class="ot">&lt;-</span> <span class="dv">10</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>list_of_data <span class="ot">&lt;-</span> <span class="fu">vector</span>(<span class="st">&quot;list&quot;</span>, N)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_len</span>(N)) {</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  T_i <span class="ot">&lt;-</span> <span class="dv">100</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  M   <span class="ot">&lt;-</span> <span class="dv">8</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  X_i <span class="ot">&lt;-</span> <span class="fu">matrix</span>(<span class="fu">rnorm</span>(T_i <span class="sc">*</span> M), <span class="at">nrow=</span>T_i, <span class="at">ncol=</span>M)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  list_of_data[[i]] <span class="ot">&lt;-</span> X_i</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+</div>
+<div id="single-mixture-model-estimation" class="section level2">
+<h2>4. Single Mixture Model Estimation</h2>
+<div id="mixture-factor-analysis-mfa-1" class="section level3">
+<h3>4.1 Mixture Factor Analysis (MFA)</h3>
+<p>Use <code>mfa_em_fit()</code> to fit an MFA model for fixed <span class="math inline">\(K\)</span> (clusters) and <span class="math inline">\(r\)</span> (factors):</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(myMFAtools)  <span class="co"># hypothetical package collecting your scripts</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Suppose we want K=2 clusters, r=3 factors</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>fit_mfa <span class="ot">&lt;-</span> <span class="fu">mfa_em_fit</span>(</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">list_of_data =</span> list_of_data,</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">K =</span> <span class="dv">2</span>,</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">r =</span> <span class="dv">3</span>,</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">max_iter =</span> <span class="dv">50</span>,</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">nIterFA  =</span> <span class="dv">5</span>,</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">tol      =</span> <span class="fl">1e-3</span>,</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_init   =</span> <span class="dv">1</span>,</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_kmeans_init =</span> <span class="cn">TRUE</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+<p>This returns a fitted MFA object with elements like <code>$z</code>
+(cluster assignments), <code>$Lambda</code>, <code>$mu</code>,
+<code>$Psi</code>, etc.</p>
+</div>
+<div id="mixture-pca-mpca-1" class="section level3">
+<h3>4.2 Mixture PCA (MPCA)</h3>
+<p>Use <code>mixture_pca_em_fit()</code> similarly:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>fit_mpca <span class="ot">&lt;-</span> <span class="fu">mixture_pca_em_fit</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">list_of_data =</span> list_of_data,</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">K =</span> <span class="dv">2</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">r =</span> <span class="dv">3</span>,</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">max_iter =</span> <span class="dv">50</span>,</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">nIterPCA =</span> <span class="dv">20</span>,   <span class="co"># sub-iterations for the PCA updates</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">tol =</span> <span class="fl">1e-3</span>,</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">&quot;EM&quot;</span>,   <span class="co"># or &quot;closed_form&quot;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_init =</span> <span class="dv">1</span>,</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_kmeans_init =</span> <span class="cn">TRUE</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+<p>This returns an MPCA object, typically with <code>$z</code>,
+<code>$W</code> or <code>$P</code>/<code>$D</code>, <code>$mu</code>,
+<code>$sigma2</code>, <code>$logLik</code>, etc.</p>
+</div>
+</div>
+<div id="parameter-meanings-and-typical-settings" class="section level2">
+<h2>5. Parameter Meanings and Typical Settings</h2>
+<ol style="list-style-type: decimal">
+<li><strong><code>K</code></strong> (clusters): e.g., 1 to 5 for an
+exploratory synergy analysis.<br />
+</li>
+<li><strong><code>r</code></strong> (synergy/factor dimension):
+typically 1–5 for muscle synergy contexts.<br />
+</li>
+<li><strong><code>max_iter</code></strong>: outer EM iteration limit,
+e.g. 50–100.<br />
+</li>
+<li><strong><code>nIterFA</code></strong> (MFA) /
+<strong><code>nIterPCA</code></strong> (MPCA): sub-iterations for each
+cluster’s parameter updates.<br />
+</li>
+<li><strong><code>tol</code></strong>: convergence tolerance, typically
+~1e-3.<br />
+</li>
+<li><strong><code>n_init</code></strong>: number of random
+initializations. More helps avoid local minima.<br />
+</li>
+<li><strong><code>use_kmeans_init</code></strong>: if <code>TRUE</code>,
+tries a k-means-based assignment to seed EM.</li>
+</ol>
+</div>
+<div id="visualizing-the-fitted-model" class="section level2">
+<h2>6. Visualizing the Fitted Model</h2>
+<div id="mfa-synergy-loadings-factor-scores" class="section level3">
+<h3>6.1 MFA: Synergy Loadings &amp; Factor Scores</h3>
+<p>After <code>mfa_em_fit()</code>, you can visualize synergy
+loadings:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Heatmap of factor loadings</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>p_loadings <span class="ot">&lt;-</span> <span class="fu">plot_cluster_synergy_loadings_mfa</span>(fit_mfa, <span class="at">plot_type=</span><span class="st">&quot;heatmap&quot;</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_loadings)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Factor scores (time evolution) per subject, faceted by cluster &amp; factor</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>fit_mfa <span class="ot">&lt;-</span> <span class="fu">compute_factor_scores_mfa</span>(fit_mfa, list_of_data)</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>p_scores <span class="ot">&lt;-</span> <span class="fu">plot_all_factor_scores_mfa</span>(fit_mfa, list_of_data, <span class="at">overlay_subjects=</span><span class="cn">TRUE</span>)</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_scores)</span></code></pre></div>
+</div>
+<div id="mpca-loadings-factor-scores" class="section level3">
+<h3>6.2 MPCA: Loadings &amp; Factor Scores</h3>
+<p>Similar calls for MPCA:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Heatmap of loadings W</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>p_loadings_mpca <span class="ot">&lt;-</span> <span class="fu">plot_cluster_synergy_loadings_mpca</span>(fit_mpca, <span class="at">plot_type=</span><span class="st">&quot;heatmap&quot;</span>)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_loadings_mpca)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Factor scores</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>fit_mpca <span class="ot">&lt;-</span> <span class="fu">compute_factor_scores_mpca</span>(fit_mpca, list_of_data)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>p_scores_mpca <span class="ot">&lt;-</span> <span class="fu">plot_all_factor_scores_mpca</span>(fit_mpca, list_of_data, <span class="at">overlay_subjects=</span><span class="cn">TRUE</span>)</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(p_scores_mpca)</span></code></pre></div>
+</div>
+</div>
+<div id="optimal-parameter-search-k-r" class="section level2">
+<h2>7. Optimal Parameter Search (K, r)</h2>
+<p>If you do not know the best <code>(K, r)</code> in advance, you can
+search over a grid:</p>
+<div id="mfa-grid-search" class="section level3">
+<h3>7.1 MFA Grid Search</h3>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>search_res_mfa <span class="ot">&lt;-</span> <span class="fu">select_optimal_K_r_mfa</span>(</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  list_of_data,</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">Kvec =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>,</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">rvec =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>,</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">max_iter =</span> <span class="dv">50</span>,</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">nIterFA  =</span> <span class="dv">5</span>,</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">tol =</span> <span class="fl">1e-3</span>,</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_init =</span> <span class="dv">1</span>,</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_kmeans_init =</span> <span class="cn">TRUE</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>search_res_mfa<span class="sc">$</span>summary         <span class="co"># data.frame with K, r, logLik, BIC</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>search_res_mfa<span class="sc">$</span>best_model_info <span class="co"># best (K, r)</span></span></code></pre></div>
+</div>
+<div id="mpca-grid-search" class="section level3">
+<h3>7.2 MPCA Grid Search</h3>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>search_res_mpca <span class="ot">&lt;-</span> <span class="fu">select_optimal_K_r_mpca</span>(</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  list_of_data,</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">Kvec =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>,</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">rvec =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>,</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">max_iter =</span> <span class="dv">50</span>,</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">nIterPCA =</span> <span class="dv">20</span>,</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">tol =</span> <span class="fl">1e-3</span>,</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">&quot;EM&quot;</span>,</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_init =</span> <span class="dv">1</span>,</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_kmeans_init =</span> <span class="cn">TRUE</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>search_res_mpca<span class="sc">$</span>summary</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>search_res_mpca<span class="sc">$</span>best_model_info</span></code></pre></div>
+<p>Both <code>select_optimal_K_r_mfa()</code> and
+<code>select_optimal_K_r_mpca()</code> compute a BIC for each
+combination, returning the best by BIC.</p>
+</div>
+</div>
+<div id="refining-the-chosen-model" class="section level2">
+<h2>8. Refining the Chosen Model</h2>
+<p>Once you identify <code>(K^*, r^*)</code>, you can:</p>
+<ol style="list-style-type: decimal">
+<li><p>Extract the best model:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>best_fit_mfa <span class="ot">&lt;-</span> search_res_mfa<span class="sc">$</span>best_model_info<span class="sc">$</span>model</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>best_fit_mpca <span class="ot">&lt;-</span> search_res_mpca<span class="sc">$</span>best_model_info<span class="sc">$</span>model</span></code></pre></div></li>
+<li><p>Optionally <strong>re-run</strong> with more initializations,
+stricter tolerances, or greater iteration limits:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>final_mfa <span class="ot">&lt;-</span> <span class="fu">mfa_em_fit</span>(</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">list_of_data =</span> list_of_data,</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">K =</span> K<span class="sc">^</span><span class="er">*</span>,</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">r =</span> r<span class="sc">^</span><span class="er">*</span>,</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">max_iter =</span> <span class="dv">100</span>,</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">nIterFA  =</span> <span class="dv">10</span>,</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_init =</span> <span class="dv">5</span>,</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">tol =</span> <span class="fl">1e-4</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>final_mpca <span class="ot">&lt;-</span> <span class="fu">mixture_pca_em_fit</span>(</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">list_of_data =</span> list_of_data,</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">K =</span> K<span class="sc">^</span><span class="er">*</span>,</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">r =</span> r<span class="sc">^</span><span class="er">*</span>,</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">max_iter =</span> <span class="dv">100</span>,</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">nIterPCA =</span> <span class="dv">30</span>,</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">tol =</span> <span class="fl">1e-4</span>,</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_init =</span> <span class="dv">5</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div></li>
+<li><p>Re-visualize loadings, compute factor scores, etc.</p></li>
+</ol>
+</div>
+<div id="post-hoc-rotation-and-factor-score-recalculation" class="section level2">
+<h2>9. Post-hoc Rotation and Factor Score Recalculation</h2>
+<div id="mfa-rotation" class="section level3">
+<h3>9.1 MFA Rotation</h3>
+<p>After MFA fitting, you can apply <strong>varimax</strong> or other
+rotations to each cluster’s factor loadings:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1) Rotate factor loadings, also rotate factor scores:</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>rotated_mfa <span class="ot">&lt;-</span> <span class="fu">rotate_mfa_model</span>(final_mfa, <span class="at">rotation=</span><span class="st">&quot;varimax&quot;</span>, <span class="at">rotate_scores=</span><span class="cn">TRUE</span>)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 2) Optionally flip signs so that the largest absolute loading is positive:</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>rotated_mfa <span class="ot">&lt;-</span> <span class="fu">align_factor_signs_mfa</span>(rotated_mfa, <span class="at">method=</span><span class="st">&quot;max_abs&quot;</span>)</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 3) If you did rotate_scores=FALSE above, you can recalc scores now:</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>rotated_mfa <span class="ot">&lt;-</span> <span class="fu">compute_factor_scores_mfa</span>(rotated_mfa, list_of_data)</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a><span class="co"># 4) Plot again:</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_cluster_synergy_loadings_mfa</span>(rotated_mfa, <span class="at">plot_type=</span><span class="st">&quot;heatmap&quot;</span>)</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_all_factor_scores_mfa</span>(rotated_mfa, list_of_data)</span></code></pre></div>
+</div>
+<div id="mpca-rotation" class="section level3">
+<h3>9.2 MPCA Rotation</h3>
+<p>Likewise, for MPCA:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1) Rotate loadings W (one cluster at a time), optionally factor scores:</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>rotated_mpca <span class="ot">&lt;-</span> <span class="fu">rotate_mpca_model</span>(final_mpca, <span class="at">rotation=</span><span class="st">&quot;varimax&quot;</span>, <span class="at">rotate_scores=</span><span class="cn">TRUE</span>)</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="co"># 2) Flip sign if desired:</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>rotated_mpca <span class="ot">&lt;-</span> <span class="fu">align_factor_signs_mpca</span>(rotated_mpca, <span class="at">method=</span><span class="st">&quot;max_abs&quot;</span>)</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 3) Recompute scores if needed:</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>rotated_mpca <span class="ot">&lt;-</span> <span class="fu">compute_factor_scores_mpca</span>(rotated_mpca, list_of_data)</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a><span class="co"># 4) Plot the new loadings &amp; scores:</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_cluster_synergy_loadings_mpca</span>(rotated_mpca, <span class="at">plot_type=</span><span class="st">&quot;heatmap&quot;</span>)</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_all_factor_scores_mpca</span>(rotated_mpca, list_of_data)</span></code></pre></div>
+<p><strong>Purpose</strong>: Factor rotation helps interpret synergy
+patterns by simplifying loadings (e.g. varimax tries to make columns
+“sparse”), while sign alignment ensures consistent sign conventions.</p>
+</div>
+</div>
+<div id="example-pipeline-mfa-or-mpca" class="section level2">
+<h2>10. Example Pipeline (MFA or MPCA)</h2>
+<p>Below is a minimal example that ties everything together. We’ll
+illustrate an MFA pipeline; the MPCA pipeline is nearly identical, just
+changing the function names.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="do">### Step 1: Create or load data</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>N <span class="ot">&lt;-</span> <span class="dv">10</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>M <span class="ot">&lt;-</span> <span class="dv">8</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>list_of_data <span class="ot">&lt;-</span> <span class="fu">lapply</span>(<span class="dv">1</span><span class="sc">:</span>N, <span class="cf">function</span>(i) <span class="fu">matrix</span>(<span class="fu">rnorm</span>(<span class="dv">100</span> <span class="sc">*</span> M), <span class="dv">100</span>, M))</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="do">### Step 2: Search for best (K, r) via MFA</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>search_res <span class="ot">&lt;-</span> <span class="fu">select_optimal_K_r_mfa</span>(</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  list_of_data,</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">Kvec=</span><span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>, <span class="at">rvec=</span><span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>,</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">max_iter=</span><span class="dv">30</span>, <span class="at">nIterFA=</span><span class="dv">5</span>, <span class="at">tol=</span><span class="fl">1e-3</span>, <span class="at">n_init=</span><span class="dv">2</span>,</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">use_kmeans_init=</span><span class="cn">TRUE</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>search_res<span class="sc">$</span>summary</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>best_info <span class="ot">&lt;-</span> search_res<span class="sc">$</span>best_model_info</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a><span class="do">### Step 3: Refine best</span></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>final_mfa <span class="ot">&lt;-</span> <span class="fu">mfa_em_fit</span>(</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>  list_of_data,</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">K=</span>best_info<span class="sc">$</span>K,</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">r=</span>best_info<span class="sc">$</span>r,</span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>  <span class="at">max_iter=</span><span class="dv">50</span>,</span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">nIterFA=</span><span class="dv">5</span>,</span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_init=</span><span class="dv">5</span>,</span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a>  <span class="at">tol=</span><span class="fl">1e-4</span></span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a><span class="do">### Step 4: Plot synergy loadings</span></span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_cluster_synergy_loadings_mfa</span>(final_mfa, <span class="at">plot_type=</span><span class="st">&quot;heatmap&quot;</span>)</span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a><span class="do">### Step 5: Factor scores</span></span>
+<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a>final_mfa <span class="ot">&lt;-</span> <span class="fu">compute_factor_scores_mfa</span>(final_mfa, list_of_data)</span>
+<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_all_factor_scores_mfa</span>(final_mfa, list_of_data)</span>
+<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a><span class="do">### Step 6: (Optional) Rotation</span></span>
+<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a>rot_mfa <span class="ot">&lt;-</span> <span class="fu">rotate_mfa_model</span>(final_mfa, <span class="at">rotation=</span><span class="st">&quot;varimax&quot;</span>, <span class="at">rotate_scores=</span><span class="cn">TRUE</span>)</span>
+<span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a>rot_mfa <span class="ot">&lt;-</span> <span class="fu">align_factor_signs_mfa</span>(rot_mfa)</span>
+<span id="cb13-37"><a href="#cb13-37" aria-hidden="true" tabindex="-1"></a>rot_mfa <span class="ot">&lt;-</span> <span class="fu">compute_factor_scores_mfa</span>(rot_mfa, list_of_data)  <span class="co"># if needed</span></span>
+<span id="cb13-38"><a href="#cb13-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-39"><a href="#cb13-39" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_cluster_synergy_loadings_mfa</span>(rot_mfa, <span class="at">plot_type=</span><span class="st">&quot;heatmap&quot;</span>)</span>
+<span id="cb13-40"><a href="#cb13-40" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_all_factor_scores_mfa</span>(rot_mfa, list_of_data)</span></code></pre></div>
+<p><strong>For MPCA</strong>: just swap out the MFA-specific function
+calls (<code>mfa_em_fit</code> → <code>mixture_pca_em_fit</code>, etc.)
+with the MPCA equivalents.</p>
+</div>
+<div id="closing-remarks" class="section level2">
+<h2>11. Closing Remarks</h2>
+<ul>
+<li><strong>Interpretation</strong>: Always check whether synergy
+loadings make physiological sense. Mixed-subject synergy analysis can
+reveal distinct synergy “clusters” that might be lost in a single global
+decomposition.<br />
+</li>
+<li><strong>Computation</strong>: Large <code>(K, r)</code> grids and
+big data may require parallelization or focusing on smaller parameter
+ranges.<br />
+</li>
+<li><strong>Rotation</strong>: Varimax or similar methods can improve
+interpretability by making synergy loadings sparser or more distinct.
+Sign alignment ensures consistent direction for easier comparison across
+factors or clusters.<br />
+</li>
+<li><strong>Further customizations</strong>: For advanced usage, you can
+add custom rotations (e.g. oblimin, promax) or constraints on the
+synergy shapes.</li>
+</ul>
+<p>Using <strong>MFA</strong> or <strong>MPCA</strong> in a mixture
+setting, alongside <strong>post-hoc rotation</strong> and <strong>factor
+score recalculation</strong>, can substantially enhance your ability to
+discover and interpret distinct synergy patterns in heterogeneous EMG
+datasets.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

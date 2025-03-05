@@ -2,7 +2,7 @@
 % Please edit documentation in R/mpca_em_fit.R
 \name{mixture_pca_em_fit}
 \alias{mixture_pca_em_fit}
-\title{Fit a Mixture PCA Model (Using mpcaTimeseriesCpp)}
+\title{Fit a Mixture PCA Model (Using mpcaTimeseriesCpp) with optional multi-initialization}
 \usage{
 mixture_pca_em_fit(
   list_of_data,
@@ -11,7 +11,11 @@ mixture_pca_em_fit(
   max_iter = 50,
   nIterPCA = 20,
   tol = 0.001,
-  method = "EM"
+  method = "EM",
+  n_init = 1,
+  use_kmeans_init = TRUE,
+  subject_rdim_for_kmeans = r,
+  mc_cores = 1
 )
 }
 \arguments{
@@ -23,46 +27,64 @@ mixture_pca_em_fit(
 
 \item{max_iter}{Maximum EM iterations for the C++ routine.}
 
-\item{nIterPCA}{Sub-iterations for updating each cluster's PPCA parameters (\code{pcaEMupdateCpp}).}
+\item{nIterPCA}{Sub-iterations for updating each cluster's PPCA parameters.}
 
 \item{tol}{Convergence tolerance for \code{mpcaTimeseriesCpp}.}
 
-\item{method}{Either \code{"EM"} or \code{"closed_form"}, indicating which cluster-level routine
-to use inside C++ (\code{pcaEMupdateCpp} or \code{pcaClosedFormCpp}).}
+\item{method}{Either \code{"EM"} or \code{"closed_form"}, passed down to the C++ routine.}
+
+\item{n_init}{Integer; how many random initial assignments to try (in addition to
+the default single-run or k-means if requested). Defaults to \code{1}.}
+
+\item{use_kmeans_init}{Logical; if \code{TRUE}, we also run one initialization
+where we assign clusters by k-means on subject-level PCA features. Defaults to \code{FALSE}.}
+
+\item{subject_rdim_for_kmeans}{The PCA dimension for the subject-level feature extraction,
+used only if \code{use_kmeans_init=TRUE}. Defaults to \code{r}.}
+
+\item{mc_cores}{Number of cores for parallel execution via \code{mclapply}.
+Defaults to \code{1} (no parallel).}
 }
 \value{
 A list with elements:
-\item{z}{Hard cluster assignments (1..K).}
-\item{pi}{Mixing proportions.}
-\item{mu}{List of length \code{K}, each a mean vector.}
-\item{P}{List of length \code{K}, each an \code{(M x r)} matrix of principal directions.}
-\item{D}{List of length \code{K}, each an \code{(r x r)} diagonal matrix. 
-  (For now, we create a trivial diagonal from the norm of \code{W}'s columns; see details.)}
-\item{Psi}{List of length \code{K}, each an \code{(M x M)} diagonal matrix representing residual noise \eqn{\sigma^2 I}.}
-\item{logLik}{Final log-likelihood over all data.}
-\item{resp}{An \code{N x K} matrix of mixture responsibilities in R.}
+  \item{z}{Hard cluster assignments (1..K).}
+  \item{pi}{Mixing proportions.}
+  \item{mu}{List of length K, each a mean vector.}
+  \item{P}{List of length K, each \code{(M x r)} principal directions.}
+  \item{D}{List of length K, each \code{(r x r)} diagonal.}
+  \item{Psi}{List of length K, each \code{(M x M)} diagonal.}
+  \item{logLik}{Final log-likelihood over all data.}
+  \item{sigma2}{Numeric vector of length K for \code{sigma2}.}
+  \item{resp}{\code{(N x K)} matrix of responsibilities.}
 }
 \description{
 This function calls the C++ function \code{mpcaTimeseriesCpp()} to perform a
-Mixture PCA (PPCA) EM algorithm for fixed \code{K} and \code{r}. 
-After that, it computes the final log-likelihood and responsibilities in R,
-returning a structure close to the original "simple" approach with \code{(P, D, Psi, ...)}.
+Mixture PCA (PPCA) EM algorithm for fixed \code{K} and \code{r}, then converts
+the \code{W} matrices into \code{(P, D)}, creates \code{Psi}, and computes the final
+log-likelihood/responsibilities in R. By default, it runs a single pass with
+the built-in initialization in C++. However, if \code{n_init > 1} or
+\code{use_kmeans_init=TRUE}, it performs multiple initializations in parallel
+and returns the best-fitting result (highest log-likelihood).
 }
 \details{
-Internally calls \code{mpcaTimeseriesCpp()} which performs an EM loop at the cluster level, 
-grouping time-series that belong to each cluster (hard assignment). In each M-step, it either uses
-\code{pcaEMupdateCpp} (if \code{method="EM"}) or \code{pcaClosedFormCpp} (if \code{method="closed_form"})
-to get a single-cluster PPCA solution (mean, W, sigma2). In this R function, we interpret
-\code{W} as \code{P}, store an approximate diagonal matrix \code{D}, and create a diagonal
-\code{Psi} matrix from \code{sigma2 I}. We also compute final log-likelihood and responsibilities
-by evaluating the mixture model in R.
-
-If you need a more precise \code{D} (like exact singular values) or different structure, adjust the code below.
+If \code{n_init=1} and \code{use_kmeans_init=FALSE}, this function runs exactly one pass
+with the default initialization in C++ (i.e. subject \code{i} is assigned to cluster
+\code{(i \% K) + 1}). Otherwise:
+\enumerate{
+  \item If \code{use_kmeans_init=TRUE}, we do a run where we apply k-means to some
+        subject-level PCA features to get \code{z_init}, then run EM once.
+  \item We generate \code{n_init} random initial assignments, run EM for each in parallel,
+        and collect the results.
+  \item We compare all solutions by final log-likelihood and pick the best.
+}
 }
 \examples{
 \dontrun{
-# Suppose we have a list_of_data with M=8 columns, K=3 clusters, r=2 PCs:
-fit <- mixture_pca_em_fit(list_of_data, K=3, r=2, max_iter=30, nIterPCA=10, tol=1e-4)
+# Suppose we have a list_of_data, K=3, r=2, and we want to try 5 random inits + k-means:
+fit <- mixture_pca_em_fit(
+  list_of_data, K=3, r=2, max_iter=50, nIterPCA=20, tol=1e-3, method="EM",
+  n_init=5, use_kmeans_init=TRUE, subject_rdim_for_kmeans=2, mc_cores=2
+)
 print(fit$logLik)
 head(fit$z)
 }

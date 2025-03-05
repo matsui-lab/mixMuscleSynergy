@@ -18,6 +18,7 @@
 #'   \item{z}{Hard cluster assignments (1..K).}
 #'   \item{pi}{Mixing proportions (length K).}
 #'   \item{mu}{List of length K, each a mean vector (length M).}
+#'   \item{W}{List of length K, each an \code{(M x r)} loading matrix (optional).}
 #'   \item{P}{List of length K, each an \code{(M x r)} matrix of principal directions.}
 #'   \item{D}{List of length K, each an \code{(r x r)} diagonal matrix of column norms.}
 #'   \item{Psi}{List of length K, each an \code{(M x M)} diagonal matrix \code{sigma2 * I}.}
@@ -34,6 +35,7 @@
 #'   method="EM", z_init=z_init
 #' )
 #' print(fit_one$logLik)
+#' # Now we can call compute_factor_scores_mpca(fit_one, list_of_data) because fit_one$W exists
 #' }
 #'
 #' @export
@@ -46,7 +48,7 @@ mixture_pca_em_fit_cpp_singleInit <- function(list_of_data,
                                               method   = "EM",
                                               z_init)
 {
-  # 1) Call the updated C++ function with z_init
+  # 1) Call the updated C++ function (which accepts z_init)
   fit_cpp <- mpcaTimeseriesCpp(
     list_of_data = list_of_data,
     K = K,
@@ -61,10 +63,10 @@ mixture_pca_em_fit_cpp_singleInit <- function(list_of_data,
   # 2) Extract results from C++
   #    W_list_cpp, mu_list_cpp, sigma2_vec, pi_vec, z_cpp
   z_cpp      <- fit_cpp$z
-  W_list_cpp <- fit_cpp$W
-  mu_list_cpp<- fit_cpp$mu
-  sigma2_vec <- fit_cpp$sigma2
-  pi_vec     <- fit_cpp$pi
+  W_list_cpp <- fit_cpp$W       # (K elements, each (M x r))
+  mu_list_cpp<- fit_cpp$mu      # (K elements)
+  sigma2_vec <- fit_cpp$sigma2  # length K
+  pi_vec     <- fit_cpp$pi      # length K
 
   # 3) Convert W -> (P, D) and build Psi
   K_check <- length(W_list_cpp)
@@ -77,7 +79,7 @@ mixture_pca_em_fit_cpp_singleInit <- function(list_of_data,
   Psi_list <- vector("list", K)
 
   for(k2 in seq_len(K)){
-    W_k <- W_list_cpp[[k2]]
+    W_k <- W_list_cpp[[k2]]    # (M x r)
     M_k <- nrow(W_k)
     r_k <- ncol(W_k)
 
@@ -88,6 +90,7 @@ mixture_pca_em_fit_cpp_singleInit <- function(list_of_data,
       if(cs_j < 1e-12) cs_j <- 1e-12
       col_scales[j] <- cs_j
     }
+    # P_k = W_k with normalized columns
     P_k <- W_k
     for(j in seq_len(r_k)){
       P_k[, j] <- W_k[, j] / col_scales[j]
@@ -108,10 +111,9 @@ mixture_pca_em_fit_cpp_singleInit <- function(list_of_data,
   for(k2 in seq_len(K)){
     # Sigma_k = W_k W_k^T + sigma2 * I
     # or equivalently P_k D_k^2 P_k^T + sigma2 * I
-    P_k  <- P_list[[k2]]
-    D_k  <- D_list[[k2]]
+    W_k  <- W_list_cpp[[k2]]  # or use P_k * D_k
     sig2 <- sigma2_vec[k2]
-    Sig_k <- P_k %*% (D_k^2) %*% t(P_k)
+    Sig_k <- W_k %*% t(W_k)
     diag(Sig_k) <- diag(Sig_k) + sig2
     Sigma_list[[k2]] <- Sig_k
   }
@@ -120,6 +122,7 @@ mixture_pca_em_fit_cpp_singleInit <- function(list_of_data,
   resp <- matrix(0, nrow=N, ncol=K)
   for(i in seq_len(N)){
     Xi <- list_of_data[[i]]
+    T_i <- nrow(Xi)
     logvals <- numeric(K)
     for(k2 in seq_len(K)){
       mu_k  <- mu_list_cpp[[k2]]
@@ -139,10 +142,12 @@ mixture_pca_em_fit_cpp_singleInit <- function(list_of_data,
   }
 
   # 5) Return final structure
+  #    **Include $W in the output** so compute_factor_scores_mpca() won't complain
   out <- list(
     z      = z_cpp,
     pi     = pi_vec,
     mu     = mu_list_cpp,
+    W      = W_list_cpp,  # <--- keep the original loadings
     P      = P_list,
     D      = D_list,
     Psi    = Psi_list,
@@ -150,8 +155,9 @@ mixture_pca_em_fit_cpp_singleInit <- function(list_of_data,
     sigma2 = sigma2_vec,
     resp   = resp
   )
-  out
+  return(out)
 }
+
 
 #' Fit a Mixture PCA Model (Using mpcaTimeseriesCpp) with optional multi-initialization
 #'
@@ -222,7 +228,7 @@ mixture_pca_em_fit <- function(list_of_data,
                                tol      = 1e-3,
                                method   = "EM",
                                n_init   = 1,
-                               use_kmeans_init = FALSE,
+                               use_kmeans_init = TRUE,
                                subject_rdim_for_kmeans = r,
                                mc_cores = 1)
 {

@@ -28,7 +28,7 @@ global VAF (\code{\link{compute_global_vaf_mfa}}) and cluster sizes
 (\code{\link{compute_cluster_sizes}}).
 }
 \details{
-This function loops over each entry in \code{selection_obj$all_models}, 
+This function loops over each entry in \code{selection_obj$all_models},
 extracts the model, calls \code{\link{compute_global_vaf_mfa}} and
 \code{\link{compute_cluster_sizes}}, and records the results in a combined table.
 }

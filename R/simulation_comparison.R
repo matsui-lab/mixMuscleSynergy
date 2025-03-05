@@ -108,66 +108,6 @@ simulate_mixture_data_for_comparison <- function(
   )
 }
 
-#' #' Simulate Data from Multiple Factor-Model Clusters
-#' #'
-#' #' This function generates data from \code{K_true} subgroups, each with a distinct
-#' #' factor model (\eqn{\Lambda_k, \mu_k, \Psi_k}). Subjects are assigned to clusters
-#' #' with uniform probability, then a time-series of length \code{T_each} is sampled
-#' #' from that subgroup's covariance.
-#' #'
-#' #' @param N Number of subjects (time series).
-#' #' @param K_true True number of clusters.
-#' #' @param r_true True factor dimension in each cluster.
-#' #' @param M Number of observed channels (e.g., muscles).
-#' #' @param T_each Time-series length per subject.
-#' #' @param seed Random seed for reproducibility.
-#' #'
-#' #' @return A list with:
-#' #' \describe{
-#' #'   \item{\code{list_of_data}}{A list of length N; each element is a \code{(T_each x M)} matrix.}
-#' #'   \item{\code{z_true}}{A length-N integer vector for true cluster assignments (1..K_true).}
-#' #'   \item{\code{Lambda_true, mu_true, Psi_true}}{The underlying parameters for each cluster.}
-#' #' }
-#' #' @export
-#' simulate_mixture_data_for_comparison <- function(N=50, K_true=2, r_true=2,
-#'                                                  M=6, T_each=100,
-#'                                                  seed=123)
-#' {
-#'   set.seed(seed)
-#'   pi_true <- rep(1 / K_true, K_true)
-#'   z_true  <- sample.int(K_true, size = N, replace = TRUE, prob = pi_true)
-#'
-#'   Lambda_list <- vector("list", K_true)
-#'   mu_list     <- vector("list", K_true)
-#'   Psi_list    <- vector("list", K_true)
-#'
-#'   for(k in seq_len(K_true)) {
-#'     mu_k <- rnorm(M, sd = 0.3) + (k - 1) * 0.5
-#'     lam_scale <- 0.2 + 0.1 * k
-#'     Lambda_k <- matrix(rnorm(M * r_true, sd = lam_scale), nrow = M, ncol = r_true)
-#'     psi_vec  <- runif(M, min=0.05, max=0.2)
-#'     Psi_k    <- diag(psi_vec, nrow = M)
-#'     mu_list[[k]]     <- mu_k
-#'     Lambda_list[[k]] <- Lambda_k
-#'     Psi_list[[k]]    <- Psi_k
-#'   }
-#'
-#'   list_of_data <- vector("list", N)
-#'   for(i in seq_len(N)) {
-#'     k_i <- z_true[i]
-#'     Sig_k <- Lambda_list[[k_i]] %*% t(Lambda_list[[k_i]]) + Psi_list[[k_i]]
-#'     Xi <- MASS::mvrnorm(n = T_each, mu = mu_list[[k_i]], Sigma = Sig_k)
-#'     list_of_data[[i]] <- Xi
-#'   }
-#'
-#'   list(
-#'     list_of_data = list_of_data,
-#'     z_true       = z_true,
-#'     Lambda_true  = Lambda_list,
-#'     mu_true      = mu_list,
-#'     Psi_true     = Psi_list
-#'   )
-#' }
 
 # ============================================================
 # 2) Single Factor Analysis (FA)

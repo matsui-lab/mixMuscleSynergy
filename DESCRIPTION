@@ -1,7 +1,7 @@
 Package: mixMuscleSynergy
 Type: Package
 Title: A Package for Mixture of Muscle Synergy Analysis
-Version: 0.1.0
+Version: 0.3.0
 Author: Your Name
 Maintainer: Your Name <your.email@example.com>
 Description: This package provides tools for analyzing muscle synergy using 
@@ -15,4 +15,4 @@ LinkingTo: Rcpp,RcppArmadillo
 Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
 NeedsCompilation: yes
-Packaged: 2025-02-12 17:03:29 UTC; owner
+Packaged: 2025-03-05 16:17:23 UTC; owner

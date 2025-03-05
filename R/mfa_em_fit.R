@@ -180,7 +180,7 @@ mfa_em_fit <- function(
     nIterFA  = 20,
     tol      = 1e-3,
     n_init   = 1,
-    use_kmeans_init = FALSE,
+    use_kmeans_init = TRUE,
     subject_rdim_for_kmeans = r,
     mc_cores = 1
 )
