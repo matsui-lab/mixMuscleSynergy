@@ -11,7 +11,7 @@ Muscle synergy analysis is often applied to reduce high-dimensional electromyogr
 
 Both approaches can handle heterogeneous data, grouping subjects (or trials) into different synergy “clusters,” each with its own synergy loadings.
 
-Compared to a single global factor/PCA decomposition, mixture-based approaches can uncover fundamentally different synergy patterns in subpopulations (e.g. half the subjects might use synergy pattern A, the other half synergy pattern B).
+Compared to a single global factor/PCA decomposition, mixture-based approaches can uncover fundamentally different synergy patterns in subpopulations (e.g. half the subjects might use synergy pattern A, the other half synergy pattern B)
 
 
 ## 2. Method Overview and Effective Use Cases
@@ -19,14 +19,15 @@ Compared to a single global factor/PCA decomposition, mixture-based approaches c
 ### 2.1 Mixture Factor Analysis (MFA)
 
 1. **Cluster membership**  
-   Each subject \(i\) belongs to one of \(K\) clusters with probability \(\pi_k\).  
+   Each subject $`i`$ belongs to one of $`K`$clusters with probability $`\pi_k`$.  
 
 2. **Factor model per cluster**  
-   Within cluster \(k\), each subject’s data \(X_i\) (dimension \(\text{time} \times M\)) follows a low-dimensional factor model:
-   \[
+   Within cluster $`k`$, each subject’s data $`X_i`$ (dimension $`\text{time} \times M`$) follows a low-dimensional factor model:
+   
+   ```math
      X_i(t) = \mu_k + \Lambda_k \, Z_i(t) + \varepsilon_{i,t},
-   \]
-   where \(\mu_k\) is the mean vector, \(\Lambda_k\) is \((M \times r)\) factor loadings (synergy matrix), and \(\varepsilon_{i,t}\) ~ \(\mathcal{N}(0, \Psi_k)\) with \(\Psi_k\) diagonal.
+   ```
+   where $`\mu_k`$ is the mean vector, $`\Lambda_k`$ is $`(M \times r)`$ factor loadings (synergy matrix), and $`\varepsilon_{i,t}`$ ~ $`\mathcal{N}(0, \Psi_k)`$ with $`\Psi_k`$ diagonal.
 
 ### 2.2 Mixture PCA (MPCA)
 
